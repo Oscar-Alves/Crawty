@@ -3,7 +3,6 @@ from crawlers.longatti import LongattiCrawler
 from crawlers.domicilium import DomiciliumCrawler
 
 def salvar_dados(nome_arquivo, dados):
-    """Função auxiliar para salvar os dados em JSON"""
     try:
         with open(nome_arquivo, 'w', encoding='utf-8') as f:
             json.dump(dados, f, ensure_ascii=False, indent=4)
@@ -12,12 +11,10 @@ def salvar_dados(nome_arquivo, dados):
         print(f"Erro ao salvar arquivo: {e}")
 
 def main():
-    print("--- INICIANDO SISTEMA CRAWLER IMOBILIÁRIO ---")
-    
     # Lista para acumular todos os dados de todas as imobiliárias
     banco_de_dados_temporario = []
 
-    # # --- IMOBILIÁRIA 1: LONGATTI ---
+    # --- IMOBILIÁRIA 1: LONGATTI ---
     print("\n> Iniciando Crawler: Longatti Imóveis")
     crawler_longatti = LongattiCrawler()
     imoveis_longatti = crawler_longatti.buscar_imoveis()
@@ -42,10 +39,8 @@ def main():
     # --- FUTURAS IMOBILIÁRIAS ---
     # Aqui você chamaria crawler_outra = OutraImobiliaria()...
 
-    # --- FINALIZAÇÃO ---
     print(f"\nTotal geral de imóveis capturados: {len(banco_de_dados_temporario)}")
     
-    # Salvar em um JSON único para análise (ou futuramente enviar pro BD)
     salvar_dados('imoveis_consolidados.json', banco_de_dados_temporario)
 
 if __name__ == "__main__":
