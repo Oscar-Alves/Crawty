@@ -1,0 +1,43 @@
+import os
+from pathlib import Path
+from pymongo import MongoClient
+from dotenv import load_dotenv
+
+env_path = Path(__file__).resolve().parent.parent / 'credentials.env'
+
+load_dotenv(dotenv_path=env_path)
+
+MONGO_URL = os.getenv("MONGODB_URL")
+DB_NAME = os.getenv("DB_NAME", "imobiliaria_db")
+
+# Debug simples para confirmar se carregou (opcional, pode remover depois)
+if not MONGO_URL:
+    print(f"ERRO CRÍTICO: Não foi possível encontrar o .env no caminho: {env_path}")
+    print("Verifique se o arquivo .env existe e contém a variável MONGODB_URL.")
+    client = None
+    db = None
+    imoveis_collection = None
+else:
+    try:
+        client = MongoClient(MONGO_URL)
+        db = client[DB_NAME]
+        imoveis_collection = db["imoveis"]
+        # Teste rápido de conexão (ping)
+        client.admin.command('ping')
+    except Exception as e:
+        print(f"Erro ao conectar no MongoDB: {e}")
+        imoveis_collection = None
+
+def criar_indices():
+    if imoveis_collection is not None:
+        try:
+            imoveis_collection.create_index("id_unico", unique=True)
+            imoveis_collection.create_index([("cidade", 1), ("bairro", 1)])
+            imoveis_collection.create_index([("preco", 1)])
+            imoveis_collection.create_index([("modalidade", 1)])
+            print("Índices do MongoDB verificados.")
+        except Exception as e:
+            print(f"Erro ao criar índices: {e}")
+
+if imoveis_collection is not None:
+    criar_indices()
