@@ -7,6 +7,16 @@ import pymongo
 
 app = FastAPI(title="API Imóveis Unificada", version="1.1")
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Permite que qualquer site acesse (ok para desenvolvimento)
+    allow_credentials=True,
+    allow_methods=["*"], # Permite GET, POST, etc.
+    allow_headers=["*"],
+)
+
 def converter_mongo_para_dict(imovel):
     if "_id" in imovel:
         del imovel["_id"]
