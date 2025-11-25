@@ -1,4 +1,5 @@
 import json
+from crawlers.chaves import ChavesCrawler
 from crawlers.longatti import LongattiCrawler
 from crawlers.domicilium import DomiciliumCrawler
 from crawlers.zanfer import ZanferCrawler
@@ -38,15 +39,26 @@ def main():
     # print(f"> Finalizado Domicilium. Imóveis capturados: {len(imoveis_domicilium)}")
 
     # --- IMOBILIÁRIA 3: Zanfer ---
-    print("\n> Iniciando Crawler: Zanfer Imóveis")
-    crawler_zanfer = ZanferCrawler()
-    imoveis_zanfer = crawler_zanfer.buscar_imoveis()
+    # print("\n> Iniciando Crawler: Zanfer Imóveis")
+    # crawler_zanfer = ZanferCrawler()
+    # imoveis_zanfer = crawler_zanfer.buscar_imoveis()
     
-    for imovel in imoveis_zanfer:
-        imovel['crawler_source'] = 'Zanfer'
+    # for imovel in imoveis_zanfer:
+    #     imovel['crawler_source'] = 'Zanfer'
         
-    banco_de_dados_temporario.extend(imoveis_zanfer)
-    print(f"> Finalizado Zanfer. Imóveis capturados: {len(imoveis_zanfer)}")
+    # banco_de_dados_temporario.extend(imoveis_zanfer)
+    # print(f"> Finalizado Zanfer. Imóveis capturados: {len(imoveis_zanfer)}")
+
+        # --- IMOBILIÁRIA 4: Chaves ---
+    print("\n> Iniciando Crawler: Chaves Imóveis")
+    crawler_chaves = ChavesCrawler()
+    imoveis_chaves = crawler_chaves.buscar_imoveis()
+    
+    for imovel in imoveis_chaves:
+        imovel['crawler_source'] = 'Chaves'
+        
+    banco_de_dados_temporario.extend(imoveis_chaves)
+    print(f"> Finalizado Chaves. Imóveis capturados: {len(imoveis_chaves)}")
 
     # --- FUTURAS IMOBILIÁRIAS ---
     # Aqui você chamaria crawler_outra = OutraImobiliaria()...
