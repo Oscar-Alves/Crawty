@@ -1,0 +1,20 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Header from './components/Header';
+import Home from './pages/home';
+import DetalhesImovel from './pages/DetalhesImovel';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <div className="min-h-screen bg-gray-50 font-sans selection:bg-blue-100 selection:text-blue-900">
+        <Header />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/imovel/:id" element={<DetalhesImovel />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
+  );
+}
+
+export default App;
