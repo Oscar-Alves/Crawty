@@ -210,9 +210,9 @@ class ChavesCrawler:
 
         while continuar:
             # TRAVA DE SEGURANÇA
-            if page > 2:
-                logging.info("Limite de 2 páginas atingido (Teste). Parando.")
-                break
+            # if page > 2:
+            #     logging.info("Limite de 2 páginas atingido (Teste). Parando.")
+            #     break
 
             try:
                 payload = payload_base.copy()

@@ -165,8 +165,8 @@ class DomiciliumCrawler:
         logging.info(f"--- Iniciando Domicilium: {nome_modalidade} ---")
 
         while continuar:
-            # TRAVA DE SEGURANÇA (REMOVER EM PROD)
-            if page > 1: break 
+            # # TRAVA DE SEGURANÇA (REMOVER EM PROD)
+            # if page > 1: break 
 
             try:
                 payload = {'page': str(page), 'FiltroBusca': filtro_string}

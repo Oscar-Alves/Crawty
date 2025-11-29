@@ -17,38 +17,38 @@ def main():
     banco_de_dados_temporario = []
 
     # --- IMOBILIÁRIA 1: LONGATTI ---
-    # print("\n> Iniciando Crawler: Longatti Imóveis")
-    # crawler_longatti = LongattiCrawler()
-    # imoveis_longatti = crawler_longatti.buscar_imoveis()
+    print("\n> Iniciando Crawler: Longatti Imóveis")
+    crawler_longatti = LongattiCrawler()
+    imoveis_longatti = crawler_longatti.buscar_imoveis()
 
-    # for imovel in imoveis_longatti:
-    #     imovel['crawler_source'] = 'Longatti'
+    for imovel in imoveis_longatti:
+        imovel['crawler_source'] = 'Longatti'
         
-    # banco_de_dados_temporario.extend(imoveis_longatti)
-    # print(f"> Finalizado Longatti. Imóveis capturados: {len(imoveis_longatti)}")
+    banco_de_dados_temporario.extend(imoveis_longatti)
+    print(f"> Finalizado Longatti. Imóveis capturados: {len(imoveis_longatti)}")
 
     # --- IMOBILIÁRIA 2: Domicilium ---
-    # print("\n> Iniciando Crawler: Domicilium Imóveis")
-    # crawler_domicilium = DomiciliumCrawler()
-    # imoveis_domicilium = crawler_domicilium.buscar_imoveis()
-    
-    # for imovel in imoveis_domicilium:
-    #     imovel['crawler_source'] = 'Domicilium'
+    print("\n> Iniciando Crawler: Domicilium Imóveis")
+    crawler_domicilium = DomiciliumCrawler()
+    imoveis_domicilium = crawler_domicilium.buscar_imoveis()
+
+    for imovel in imoveis_domicilium:
+        imovel['crawler_source'] = 'Domicilium'
         
-    # banco_de_dados_temporario.extend(imoveis_domicilium)
-    # print(f"> Finalizado Domicilium. Imóveis capturados: {len(imoveis_domicilium)}")
+    banco_de_dados_temporario.extend(imoveis_domicilium)
+    print(f"> Finalizado Domicilium. Imóveis capturados: {len(imoveis_domicilium)}")
 
     # --- IMOBILIÁRIA 3: Zanfer ---
-    # print("\n> Iniciando Crawler: Zanfer Imóveis")
-    # crawler_zanfer = ZanferCrawler()
-    # imoveis_zanfer = crawler_zanfer.buscar_imoveis()
+    print("\n> Iniciando Crawler: Zanfer Imóveis")
+    crawler_zanfer = ZanferCrawler()
+    imoveis_zanfer = crawler_zanfer.buscar_imoveis()
     
-    # for imovel in imoveis_zanfer:
-    #     imovel['crawler_source'] = 'Zanfer'
+    for imovel in imoveis_zanfer:
+        imovel['crawler_source'] = 'Zanfer'
         
-    # banco_de_dados_temporario.extend(imoveis_zanfer)
-    # print(f"> Finalizado Zanfer. Imóveis capturados: {len(imoveis_zanfer)}")
-
+    banco_de_dados_temporario.extend(imoveis_zanfer)
+    print(f"> Finalizado Zanfer. Imóveis capturados: {len(imoveis_zanfer)}")
+    
         # --- IMOBILIÁRIA 4: Chaves ---
     print("\n> Iniciando Crawler: Chaves Imóveis")
     crawler_chaves = ChavesCrawler()
