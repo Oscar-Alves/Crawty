@@ -30,9 +30,9 @@ class LongattiCrawler:
 
         while continuar_buscando:
 
-            # if page_count > 2:
-            #     logging.info(f"Limite de teste atingido para {modalidade_nome} (2 páginas). Parando.")
-            #     break
+            if page_count > 0:
+                logging.info(f"Limite de teste atingido para {modalidade_nome} (2 páginas). Parando.")
+                break
 
             url_atual = self.base_url.format(skip, take)
             try:

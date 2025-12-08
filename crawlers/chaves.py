@@ -61,7 +61,8 @@ class ChavesCrawler:
             "banheiros": 0, 
             "vagas": 0,
             "extras": {},
-            "atributos_lista": [] # Para guardar "Portão Eletrônico", etc.
+            "atributos_lista": [], # Para guardar "Portão Eletrônico", etc.
+            "fotos_extras": []
         }
 
         if not link_imovel or not link_imovel.startswith('http'):
@@ -75,6 +76,39 @@ class ChavesCrawler:
                 return detalhes
 
             soup = BeautifulSoup(response.text, 'html.parser')
+
+            # --- CAPTURA DE FOTOS (Baseado no snippet fornecido) ---
+            # Procura pelo container do slider (pelo ID ou Classe)
+            slider_container = soup.select_one('#owl-demo') or soup.select_one('.listing_single_property_slider')
+
+            if slider_container:
+                # Busca os itens da galeria (tags <a> com classe 'img-gallery')
+                galeria_items = slider_container.find_all('a', class_='img-gallery')
+                
+                for item in galeria_items:
+                    # Prioridade: atributo 'data-src' (imagem full)
+                    img_url = item.get('data-src')
+                    
+                    # Fallback: atributo 'href' se for um link de imagem
+                    if not img_url:
+                        img_url = item.get('href')
+                    
+                    # Fallback 2: tag <img> filha
+                    if not img_url:
+                        img_tag = item.find('img')
+                        if img_tag:
+                            img_url = img_tag.get('src')
+
+                    # Adiciona se encontrou uma URL válida
+                    if img_url:
+                        # Garante URL absoluta (embora o snippet mostre que já vem absoluta)
+                        if not img_url.startswith('http'):
+                            if img_url.startswith('//'):
+                                img_url = f"https:{img_url}"
+                            else:
+                                img_url = f"https://chavescorretora.com.br{img_url}"
+                        
+                        detalhes['fotos_extras'].append(img_url)
 
             # --- 1. Extração das "Características" (Chave: Valor) ---
             # No HTML enviado: <div class="property-features"> ... <div class="row col-lg-4 ..."> <div>Quartos: 5</div>
@@ -130,6 +164,16 @@ class ChavesCrawler:
                 image_box = card.find('div', class_='image-box')
                 link_tag = image_box.find('a') if image_box else None
                 link = f"https://chavescorretora.com.br{link_tag['href']}" if link_tag else ""
+
+                # FOTO DE CAPA (Thumbnail do Card)
+                fotos = []
+                if image_box:
+                    img_tag = image_box.find('img')
+                    if img_tag and img_tag.get('src'):
+                        src = img_tag['src']
+                        if not src.startswith('http'):
+                             src = f"https://chavescorretora.com.br{src}"
+                        fotos.append(src)
                 
                 # Stickers (Código e Preço)
                 stickers = card.find_all('div', class_='card-sticker')
@@ -165,6 +209,11 @@ class ChavesCrawler:
                 # --- DADOS DETALHADOS (GET na Página) ---
                 logging.info(f"Coletando detalhes: {codigo}")
                 detalhes = self._obter_detalhes_imovel(link)
+
+                if detalhes.get('fotos_extras'):
+                    for f in detalhes['fotos_extras']:
+                        if f not in fotos:
+                            fotos.append(f)
                 
                 # Merge de dados (Prioriza o detalhe, se for 0 usa o do card)
                 quartos = detalhes['quartos']
@@ -188,7 +237,7 @@ class ChavesCrawler:
                     "area_util": area,
                     "area_total": 0.0,
                     "link": link,
-                    "fotos": [],
+                    "fotos": fotos,
                     "extras": {
                         **detalhes['extras'], # Desempacota suites, salas, cozinhas
                         "atributos": ", ".join(detalhes['atributos_lista'])
@@ -210,9 +259,9 @@ class ChavesCrawler:
 
         while continuar:
             # TRAVA DE SEGURANÇA
-            # if page > 2:
-            #     logging.info("Limite de 2 páginas atingido (Teste). Parando.")
-            #     break
+            if page > 1:
+                logging.info("Limite de 1 páginas atingido (Teste). Parando.")
+                break
 
             try:
                 payload = payload_base.copy()
