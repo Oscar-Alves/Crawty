@@ -201,9 +201,9 @@ class DomiciliumCrawler:
 
         while continuar:
             # # TRAVA DE SEGURANÇA (REMOVER EM PROD)
-            if page > 1:
-                logging.info("Limite de 1 páginas atingido (Teste). Parando.")
-                break
+            # if page > 1:
+            #     logging.info("Limite de 1 páginas atingido (Teste). Parando.")
+            #     break
 
             try:
                 payload = {'page': str(page), 'FiltroBusca': filtro_string}
