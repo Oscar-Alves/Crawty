@@ -24,7 +24,7 @@ const ImovelCard = ({ imovel }) => {
                     src={fotoCapa} 
                     alt={imovel.titulo} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    onError={(e) => e.target.src = "https://via.placeholder.com/400x300?text=Erro+Foto"}
+                    onError={(e) => e.target.src = "https://placehold.co/600x400.png?text=Sem\nFoto"}
                 />
                 <div className="absolute top-3 left-3">
                     <span className={`px-2 py-1 rounded-md text-xs font-bold border ${getBadgeColor(imovel.modalidade)}`}>
