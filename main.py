@@ -7,6 +7,7 @@ from crawlers.chaves import ChavesCrawler
 from crawlers.longatti import LongattiCrawler
 from crawlers.domicilium import DomiciliumCrawler
 from crawlers.zanfer import ZanferCrawler
+from crawlers.flavio import FlavioCrawler
 
 # Configuração de Log para mostrar threads
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(threadName)s] - %(levelname)s - %(message)s')
@@ -50,6 +51,7 @@ def main():
         (LongattiCrawler, 'Longatti'),
         (DomiciliumCrawler, 'Domicilium'),
         (ZanferCrawler, 'Zanfer'),
+        (FlavioCrawler, 'Flavio Vitor'),
         (ChavesCrawler, 'Chaves')
     ]
 
