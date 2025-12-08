@@ -15,7 +15,7 @@ const ImovelCard = ({ imovel }) => {
 
     const fotoCapa = imovel.fotos && imovel.fotos.length > 0 
         ? imovel.fotos[0] 
-        : "https://via.placeholder.com/400x300?text=Sem+Foto";
+        : "https://placehold.co/600x400.png?text=Sem+Foto";
 
     return (
         <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden border border-gray-100 flex flex-col h-full group">
@@ -24,7 +24,7 @@ const ImovelCard = ({ imovel }) => {
                     src={fotoCapa} 
                     alt={imovel.titulo} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    onError={(e) => e.target.src = "https://placehold.co/600x400.png?text=Sem\nFoto"}
+                    onError={(e) => e.target.src = "https://placehold.co/600x400.png?text=Sem+Foto"}
                 />
                 <div className="absolute top-3 left-3">
                     <span className={`px-2 py-1 rounded-md text-xs font-bold border ${getBadgeColor(imovel.modalidade)}`}>
