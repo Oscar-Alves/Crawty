@@ -5,6 +5,28 @@ import Filtros from '../components/Filtros';
 import { getImoveis, getFiltros } from '../services/api';
 
 const Home = () => {
+    // 1. Tenta recuperar filtros salvos ou usa o padrão
+    const [filtros, setFiltros] = useState(() => {
+        const salvos = sessionStorage.getItem('crawty_filtros');
+        return salvos ? JSON.parse(salvos) : {
+            cidade: '',
+            bairro: '',
+            modalidade: '',
+            tipo: '',
+            ordenar_por: ''
+        };
+    });
+
+    // 2. Tenta recuperar a página salva ou começa da 1
+    const [meta, setMeta] = useState(() => {
+        const paginaSalva = sessionStorage.getItem('crawty_page');
+        return { 
+            total: 0, 
+            page: paginaSalva ? parseInt(paginaSalva) : 1, 
+            pages: 1 
+        };
+    });
+
     const [imoveis, setImoveis] = useState([]);
     const [opcoesFiltro, setOpcoesFiltro] = useState({ cidades: [], bairros: [], tipos: [] });
     const [loading, setLoading] = useState(true);
@@ -19,7 +41,13 @@ const Home = () => {
         ordenar_por: ''
     });
 
-    // Carregar opções iniciais
+    // 3. Salva no SessionStorage sempre que Filtros ou Página mudarem
+    useEffect(() => {
+        sessionStorage.setItem('crawty_filtros', JSON.stringify(filtros));
+        sessionStorage.setItem('crawty_page', meta.page.toString());
+    }, [filtros, meta.page]);
+
+    // Carregar opções do backend (Cidades, Tipos...)
     useEffect(() => {
         getFiltros().then(data => setOpcoesFiltro(data));
     }, []);
@@ -36,7 +64,8 @@ useEffect(() => {
                      ...filtros
                  });
                 setImoveis(dados.data);
-                setMeta(dados.meta);
+                // Atualiza meta, mas preserva a página atual se a API retornar algo diferente (precaução)
+                setMeta(prev => ({ ...dados.meta, page: prev.page }));
             } catch (error) {
                 console.error(error);
                 setErro(true); // NOVO: Sinaliza que houve erro na requisição
@@ -49,11 +78,24 @@ useEffect(() => {
         return () => clearTimeout(timeoutId);
     }, [filtros, meta.page]);
 
+    // Função wrapper para resetar a página ao filtrar
+    const handleFiltrosChange = (novoEstadoOuFuncao) => {
+        setFiltros(prev => {
+            const novosFiltros = typeof novoEstadoOuFuncao === 'function' 
+                ? novoEstadoOuFuncao(prev) 
+                : novoEstadoOuFuncao;
+            
+            // Se os filtros mudaram, volta para a página 1
+            if (JSON.stringify(prev) !== JSON.stringify(novosFiltros)) {
+                setMeta(m => ({ ...m, page: 1 }));
+            }
+            return novosFiltros;
+        });
+    };
+
     const mudarPagina = (novaPagina) => {
-        if (novaPagina >= 1 && novaPagina <= meta.pages) {
-            setMeta(prev => ({ ...prev, page: novaPagina }));
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        setMeta(prev => ({ ...prev, page: novaPagina }));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     return (

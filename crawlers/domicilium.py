@@ -45,7 +45,7 @@ class DomiciliumCrawler:
             return 0
 
     def _obter_detalhes_imovel(self, link_imovel):
-        detalhes = {"caracteristicas": {}, "atributos": ""}
+        detalhes = {"caracteristicas": {}, "atributos": "", "fotos_extras": []}
         if not link_imovel or not link_imovel.startswith('http'): return detalhes
 
         try:
@@ -54,6 +54,25 @@ class DomiciliumCrawler:
             if response.status_code != 200: return detalhes
 
             soup = BeautifulSoup(response.text, 'html.parser')
+
+            # Fotos Extras
+            slides = soup.find_all('div', class_='sp-slide')
+            
+            for slide in slides:
+                img_url = slide.get('data-src')
+                if not img_url:
+                    img_tag = slide.find('img', class_='sp-image')
+                    if img_tag:
+                        img_url = img_tag.get('src')
+                
+                if img_url:
+                    if not img_url.startswith('http'):
+                        if img_url.startswith('//'):
+                            img_url = f"https:{img_url}"
+                        else:
+                            img_url = f"https://www.domiciliumimoveis.com.br{img_url}"
+                    
+                    detalhes["fotos_extras"].append(img_url)
 
             # Características
             tab_caracteristicas = soup.select_one('#tab-0 ul.property-features')
@@ -113,10 +132,26 @@ class DomiciliumCrawler:
                 link_tag = card.find('a', class_='listing-img-container')
                 link = f"https://www.domiciliumimoveis.com.br{link_tag['href']}" if link_tag else ""
 
+                fotos = []
+                
+                if link_tag:
+                    link = f"https://www.domiciliumimoveis.com.br{link_tag['href']}"
+                    img_capa = link_tag.find('img')
+                    if img_capa and img_capa.get('src'):
+                        src_capa = img_capa['src']
+                        if not src_capa.startswith('http'):
+                             src_capa = f"https://www.domiciliumimoveis.com.br{src_capa}"
+                        fotos.append(src_capa)
+
                 # Detalhes
                 logging.info(f"Coletando detalhes: {codigo}")
                 detalhes = self._obter_detalhes_imovel(link)
                 feats = detalhes["caracteristicas"]
+
+                if detalhes.get("fotos_extras"):
+                    for f in detalhes["fotos_extras"]:
+                        if f not in fotos:
+                            fotos.append(f)
 
                 # Padronização
                 imovel_unificado = {
@@ -135,7 +170,7 @@ class DomiciliumCrawler:
                     "area_util": self._limpar_area(feats.get("Área construída")),
                     "area_total": self._limpar_area(feats.get("Área do terreno")),
                     "link": link,
-                    "fotos": [], # Domicilium HTML é dificil pegar todas fotos sem entrar na galeria complexa
+                    "fotos": fotos, # Domicilium HTML é dificil pegar todas fotos sem entrar na galeria complexa
                     "extras": {
                         "atributos": detalhes["atributos"],
                         "suites": self._limpar_numero(feats.get("Suítes", "0")),
@@ -166,7 +201,9 @@ class DomiciliumCrawler:
 
         while continuar:
             # # TRAVA DE SEGURANÇA (REMOVER EM PROD)
-            # if page > 1: break 
+            # if page > 1:
+            #     logging.info("Limite de 1 páginas atingido (Teste). Parando.")
+            #     break
 
             try:
                 payload = {'page': str(page), 'FiltroBusca': filtro_string}

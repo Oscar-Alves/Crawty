@@ -5,6 +5,8 @@ from models import Imovel
 import uvicorn
 import pymongo
 
+Error = "Banco não conectado"
+
 app = FastAPI(title="API Imóveis Unificada", version="1.1")
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,7 +39,7 @@ def home():
 @app.get("/filtros")
 def obter_opcoes_filtro():
     if imoveis_collection is None:
-        raise HTTPException(status_code=500, detail="Banco não conectado")
+        raise HTTPException(status_code=500, detail=Error)
 
     # Busca valores únicos no banco para montar os dropdowns
     # Isso é muito rápido no Mongo
@@ -73,7 +75,7 @@ def listar_imoveis(
     ordenar_por: Optional[str] = Query(None, pattern="^(menor_preco|maior_preco|recente)$")
 ):
     if imoveis_collection is None:
-        raise HTTPException(status_code=500, detail="Banco não conectado")
+        raise HTTPException(status_code=500, detail=Error)
 
     skip = (page - 1) * limit
     query = {}
@@ -129,7 +131,7 @@ def listar_imoveis(
 @app.get("/imoveis/{id_unico}", response_model=Imovel)
 def obter_detalhe_imovel(id_unico: str):
     if imoveis_collection is None:
-        raise HTTPException(status_code=500, detail="Banco não conectado")
+        raise HTTPException(status_code=500, detail=Error)
         
     imovel = imoveis_collection.find_one({"id_unico": id_unico})
     if imovel:
