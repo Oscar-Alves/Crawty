@@ -8,6 +8,7 @@ const Home = () => {
     const [imoveis, setImoveis] = useState([]);
     const [opcoesFiltro, setOpcoesFiltro] = useState({ cidades: [], bairros: [], tipos: [] });
     const [loading, setLoading] = useState(true);
+    const [erro, setErro] = useState(false);
     const [meta, setMeta] = useState({ total: 0, page: 1, pages: 1 });
     
     const [filtros, setFiltros] = useState({
@@ -24,24 +25,26 @@ const Home = () => {
     }, []);
 
     // Carregar imóveis com debounce
-    useEffect(() => {
+useEffect(() => {
         const fetchDados = async () => {
             setLoading(true);
+            setErro(false); // NOVO: Reseta o erro a cada nova tentativa de busca
             try {
-                const dados = await getImoveis({ 
-                    page: meta.page, 
-                    limit: 12, 
-                    ...filtros 
-                });
+                const dados = await getImoveis({
+                     page: meta.page,
+                     limit: 12,
+                     ...filtros
+                 });
                 setImoveis(dados.data);
                 setMeta(dados.meta);
             } catch (error) {
                 console.error(error);
+                setErro(true); // NOVO: Sinaliza que houve erro na requisição
+                setImoveis([]); // NOVO: Protege contra undefined garantindo um array vazio
             } finally {
                 setLoading(false);
             }
         };
-
         const timeoutId = setTimeout(fetchDados, 300);
         return () => clearTimeout(timeoutId);
     }, [filtros, meta.page]);
@@ -76,7 +79,14 @@ const Home = () => {
                         </div>
                     ))}
                 </div>
-            ) : imoveis.length > 0 ? (
+            ) : erro ? (
+                // NOVO: Renderiza a mensagem amigável se a requisição falhar
+                <div className="text-center py-20 bg-white rounded-xl border border-red-100 border-dashed">
+                    <SearchX size={64} className="mx-auto text-red-400 mb-4" />
+                    <h3 className="text-xl font-medium text-gray-900 mb-1">Erro de Conexão</h3>
+                    <p className="text-gray-500">Não foi possível carregar os dados. Verifique a conexão com o banco de dados.</p>
+                </div>
+            ): imoveis.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {imoveis.map(imovel => (
                         <ImovelCard key={imovel.id_unico} imovel={imovel} />

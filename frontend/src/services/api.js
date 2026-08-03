@@ -12,12 +12,17 @@ export const getFiltros = async () => {
 
 export const getImoveis = async (params) => {
     const query = new URLSearchParams();
+    
     // Limpa parâmetros vazios antes de enviar
     Object.entries(params).forEach(([key, value]) => {
         if (value) query.append(key, value);
     });
 
     const response = await fetch(`${API_URL}/imoveis?${query.toString()}`);
+    
+    // NOVO: Se o backend retornar erro (ex: 500), forçamos a cair no catch da Home
+    if (!response.ok) throw new Error('Erro ao buscar imóveis do servidor');
+    
     return await response.json();
 };
 
