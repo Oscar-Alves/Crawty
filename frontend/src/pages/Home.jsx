@@ -31,15 +31,6 @@ const Home = () => {
     const [opcoesFiltro, setOpcoesFiltro] = useState({ cidades: [], bairros: [], tipos: [] });
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState(false);
-    const [meta, setMeta] = useState({ total: 0, page: 1, pages: 1 });
-    
-    const [filtros, setFiltros] = useState({
-        cidade: '',
-        bairro: '',
-        modalidade: '',
-        tipo: '',
-        ordenar_por: ''
-    });
 
     // 3. Salva no SessionStorage sempre que Filtros ou Página mudarem
     useEffect(() => {
@@ -100,7 +91,7 @@ useEffect(() => {
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <Filtros opcoes={opcoesFiltro} filtros={filtros} setFiltros={setFiltros} />
+            <Filtros opcoes={opcoesFiltro} filtros={filtros} setFiltros={handleFiltrosChange} />
 
             <div className="mb-4 flex justify-between items-center">
                 <h2 className="text-gray-700 font-medium">Resultados da busca</h2>
@@ -140,7 +131,7 @@ useEffect(() => {
                     <h3 className="text-xl font-medium text-gray-900 mb-1">Nenhum imóvel encontrado</h3>
                     <p className="text-gray-500">Tente ajustar seus filtros de busca.</p>
                     <button 
-                        onClick={() => setFiltros({cidade: '', bairro: '', modalidade: '', tipo: '', ordenar_por: ''})}
+                        onClick={() => handleFiltrosChange({cidade: '', bairro: '', modalidade: '', tipo: '', ordenar_por: ''})}
                         className="mt-4 text-blue-600 hover:underline font-medium"
                     >
                         Limpar filtros

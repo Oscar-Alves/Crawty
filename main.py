@@ -101,7 +101,7 @@ def main():
         (ZanferCrawler, 'Zanfer'),
         (ChavesCrawler, 'Chaves'),
         (FlavioCrawler, 'Flavio Vitor'),
-        (DomiciliumCrawler, 'Domicilium'),
+        # (DomiciliumCrawler, 'Domicilium'),
         (LiderCrawler, 'Líder'),
         (KrasisCrawler, 'Krasis'),
         (JFroesCrawler, 'JFróes'),
