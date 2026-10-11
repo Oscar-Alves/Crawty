@@ -1,97 +1,40 @@
+mport os
+import sys
+import glob
 import json
-import logging
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-from crawlers import (
-    ZanferCrawler,
-    ChavesCrawler,
-    FlavioCrawler,
-    DomiciliumCrawler,
-    LiderCrawler,
-    KrasisCrawler,
-    JFroesCrawler,
-    FocoCrawler,
-    BaseGestaoCrawler,
-    ResendeCrawler,
-    ContinuaCrawler,
-    MendoncaCrawler,
-    LongattiCrawler
-)
-
-# Configuração de Log para mostrar threads
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(threadName)s] - %(levelname)s - %(message)s')
-
-def salvar_dados(nome_arquivo, dados):
-    try:
-        with open(nome_arquivo, 'w', encoding='utf-8') as f:
-            json.dump(dados, f, ensure_ascii=False, indent=4)
-        print(f"Dados salvos com sucesso em '{nome_arquivo}'")
-    except IOError as e:
-        print(f"Erro ao salvar arquivo: {e}")
-
-def executar_crawler(crawler_class, source_name):
+from pathlib import Path
+from datetime import datetime, timezone
+from pymongo import UpdateOne
+from backend.database import imoveis_collection
+DEFAULT_DIR = "dados_imoveis"
+def listar_arquivos_disponiveis(diretorio=DEFAULT_DIR):
     """
-    Função wrapper para instanciar e rodar um crawler específico.
+    Lista todos os arquivos JSON de imóveis disponíveis para carga.
+    Procura tanto na pasta especificada quanto na raiz do projeto.
     """
-    try:
-        print(f"> Iniciando Crawler: {source_name}...")
-        start_time = time.time()
-        
-        crawler = crawler_class()
-        imoveis = crawler.buscar_imoveis()
-        
-        # Marca a fonte em cada imóvel
-        for imovel in imoveis:
-            imovel['crawler_source'] = source_name
-            
-        duration = time.time() - start_time
-        print(f"> Finalizado {source_name}. Capturados: {len(imoveis)} em {duration:.2f}s")
-        return imoveis
-    except Exception as e:
-        print(f"ERRO CRÍTICO no crawler {source_name}: {e}")
-        return []
-
-def main():
-    start_global = time.time()
-    banco_de_dados_temporario = []
-
-    # Lista de crawlers para rodar
-    tasks = [
-        # Imobiliárias de São João del Rei
-        (ZanferCrawler, 'Zanfer'),
-        (ChavesCrawler, 'Chaves'),
-        (FlavioCrawler, 'Flavio Vitor'),
-        (DomiciliumCrawler, 'Domicilium'),
-        (LiderCrawler, 'Líder'),
-        (KrasisCrawler, 'Krasis'),
-        (JFroesCrawler, 'JFróes'),
-        (FocoCrawler, 'Foco'),
-        (BaseGestaoCrawler, 'Base Gestão'),
-        (ContinuaCrawler, 'Contínua'),
-        # Imobiliárias da região (Barbacena, Barroso, etc.)
-        (ResendeCrawler, 'Resende'),
-        (MendoncaCrawler, 'Mendonça'),
-        # (LongattiCrawler, 'Longatti'), # Desativado temporariamente devido a instabilidade no site da imobiliária
-    ]
-
-    print(f"--- Iniciando Captura Concorrente de {len(tasks)} Imobiliárias ---")
-
-    with ThreadPoolExecutor(max_workers=6) as executor:
-        # Submete todas as tarefas
-        futures = [executor.submit(executar_crawler, cls, name) for cls, name in tasks]
-        
-        # Coleta os resultados conforme eles ficam prontos
-        for future in as_completed(futures):
-            resultado = future.result()
-            if resultado:
-                banco_de_dados_temporario.extend(resultado)
-
-    total_time = time.time() - start_global
-    print(f"\nTotal geral de imóveis capturados: {len(banco_de_dados_temporario)}")
-    print(f"Tempo total de execução: {total_time:.2f}s")
+    arquivos = []
     
-    salvar_dados('imoveis_consolidados.json', banco_de_dados_temporario)
-
-if __name__ == "__main__":
-    main()
+    # Busca na pasta dados_imoveis
+    if os.path.isdir(diretorio):
+        for f in sorted(glob.glob(os.path.join(diretorio, "*.json"))):
+            arquivos.append(os.path.normpath(f))
+            
+    # Busca também arquivos 'imoveis_*.json' na raiz (para compatibilidade)
+    for f in sorted(glob.glob("imoveis_*.json")):
+        caminho_norm = os.path.normpath(f)
+        if caminho_norm not in arquivos:
+            arquivos.append(caminho_norm)
+            
+    return arquivos
+def contar_imoveis_arquivo(caminho):
+    """Retorna a contagem de itens em um arquivo JSON de forma segura."""
+    try:
+        with open(caminho, 'r', encoding='utf-8') as f:
+            dados = json.load(f)
+            return len(dados) if isinstance(dados, list) else 0
+    except Exception:
+        return 0
+def carregar_arquivo(caminho_arquivo):
+    """
+    Carrega e faz upsert de um arquivo JSON específico no MongoDB.
+    """
