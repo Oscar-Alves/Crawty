@@ -4,6 +4,8 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# OBSERVAÇÃO: A Longatti está temporariamente inativa/com instabilidade em produção
+# (o site deles não está carregando listagem de imóveis). Manter desativado até normalizarem.
 class LongattiCrawler:
     def __init__(self):
         self.base_url = "https://homeclixlongatti.dataclix.com.br:3331/website/imovel/filtrar/skip/{}/take/{}"
