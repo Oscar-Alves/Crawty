@@ -3,11 +3,21 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from crawlers.chaves import ChavesCrawler
-from crawlers.longatti import LongattiCrawler
-from crawlers.domicilium import DomiciliumCrawler
-from crawlers.zanfer import ZanferCrawler
-from crawlers.flavio import FlavioCrawler
+from crawlers import (
+    ZanferCrawler,
+    ChavesCrawler,
+    FlavioCrawler,
+    DomiciliumCrawler,
+    LiderCrawler,
+    KrasisCrawler,
+    JFroesCrawler,
+    FocoCrawler,
+    BaseGestaoCrawler,
+    ResendeCrawler,
+    ContinuaCrawler,
+    MendoncaCrawler,
+    LongattiCrawler
+)
 
 # Configuração de Log para mostrar threads
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(threadName)s] - %(levelname)s - %(message)s')
@@ -48,16 +58,26 @@ def main():
 
     # Lista de crawlers para rodar
     tasks = [
-        (LongattiCrawler, 'Longatti'),
-        (DomiciliumCrawler, 'Domicilium'),
+        # Imobiliárias de São João del Rei
         (ZanferCrawler, 'Zanfer'),
+        (ChavesCrawler, 'Chaves'),
         (FlavioCrawler, 'Flavio Vitor'),
-        (ChavesCrawler, 'Chaves')
+        (DomiciliumCrawler, 'Domicilium'),
+        (LiderCrawler, 'Líder'),
+        (KrasisCrawler, 'Krasis'),
+        (JFroesCrawler, 'JFróes'),
+        (FocoCrawler, 'Foco'),
+        (BaseGestaoCrawler, 'Base Gestão'),
+        (ContinuaCrawler, 'Contínua'),
+        # Imobiliárias da região (Barbacena, Barroso, etc.)
+        (ResendeCrawler, 'Resende'),
+        (MendoncaCrawler, 'Mendonça'),
+        # (LongattiCrawler, 'Longatti'), # Desativado temporariamente devido a instabilidade no site da imobiliária
     ]
 
     print(f"--- Iniciando Captura Concorrente de {len(tasks)} Imobiliárias ---")
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=6) as executor:
         # Submete todas as tarefas
         futures = [executor.submit(executar_crawler, cls, name) for cls, name in tasks]
         
