@@ -1,7 +1,11 @@
 from fastapi import FastAPI, HTTPException, Query
 from typing import List, Optional, Dict, Any
-from database import imoveis_collection
-from models import Imovel
+try:
+    from database import imoveis_collection
+    from models import Imovel
+except ImportError:
+    from backend.database import imoveis_collection
+    from backend.models import Imovel
 import uvicorn
 import pymongo
 
@@ -37,16 +41,22 @@ def home():
 
 # Endpoint auxiliar para preencher os Selects do Frontend
 @app.get("/filtros")
-def obter_opcoes_filtro():
+def obter_opcoes_filtro(status: str = Query("ativos", pattern="^(ativos|descontinuados|todos)$")):
     if imoveis_collection is None:
         raise HTTPException(status_code=500, detail=Error)
+
+    filtro_base = {}
+    if status == "descontinuados":
+        filtro_base = {"ativo": False}
+    elif status != "todos":
+        filtro_base = {"ativo": {"$ne": False}}
 
     # Busca valores únicos no banco para montar os dropdowns
     # Isso é muito rápido no Mongo
     try:
-        cidades = imoveis_collection.distinct("cidade")
-        bairros = imoveis_collection.distinct("bairro")
-        tipos = imoveis_collection.distinct("tipo")
+        cidades = imoveis_collection.distinct("cidade", filtro_base)
+        bairros = imoveis_collection.distinct("bairro", filtro_base)
+        tipos = imoveis_collection.distinct("tipo", filtro_base)
         # Remove valores nulos ou vazios e ordena
         cidades = sorted([c for c in cidades if c])
         bairros = sorted([b for b in bairros if b])
@@ -72,13 +82,20 @@ def listar_imoveis(
     quartos_min: Optional[int] = None,
     preco_min: Optional[float] = None,
     preco_max: Optional[float] = None,
-    ordenar_por: Optional[str] = Query(None, pattern="^(menor_preco|maior_preco|recente)$")
+    ordenar_por: Optional[str] = Query(None, pattern="^(menor_preco|maior_preco|recente)$"),
+    status: str = Query("ativos", pattern="^(ativos|descontinuados|todos)$")
 ):
     if imoveis_collection is None:
         raise HTTPException(status_code=500, detail=Error)
 
     skip = (page - 1) * limit
     query = {}
+
+    # Regra de exibição: Ativo (padrão) vs Descontinuado (histórico/auditoria) vs Todos
+    if status == "descontinuados":
+        query["ativo"] = False
+    elif status != "todos":
+        query["ativo"] = {"$ne": False}
 
     # Filtros (Case Insensitive para texto)
     if cidade:

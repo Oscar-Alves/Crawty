@@ -29,6 +29,8 @@ class Imovel(BaseModel):
     fotos: List[str] = []
     extras: Optional[ExtrasImovel] = {}
     last_updated: Optional[datetime] = None
+    ativo: bool = True
+    descontinuado_em: Optional[datetime] = None
 
     class Config:
         populate_by_name = True

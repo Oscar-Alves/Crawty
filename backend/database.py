@@ -32,9 +32,11 @@ def criar_indices():
     if imoveis_collection is not None:
         try:
             imoveis_collection.create_index("id_unico", unique=True)
-            imoveis_collection.create_index([("cidade", 1), ("bairro", 1)])
-            imoveis_collection.create_index([("preco", 1)])
-            imoveis_collection.create_index([("modalidade", 1)])
+            imoveis_collection.create_index("ativo")
+            imoveis_collection.create_index([("ativo", 1), ("cidade", 1), ("bairro", 1)])
+            imoveis_collection.create_index([("ativo", 1), ("preco", 1)])
+            imoveis_collection.create_index([("ativo", 1), ("modalidade", 1)])
+            imoveis_collection.create_index([("ativo", 1), ("tipo", 1)])
             print("Índices do MongoDB verificados.")
         except Exception as e:
             print(f"Erro ao criar índices: {e}")

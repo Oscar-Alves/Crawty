@@ -65,9 +65,16 @@ const DetalhesImovel = () => {
                                     {imovel.logradouro ? `${imovel.logradouro}, ` : ''}{imovel.bairro} - {imovel.cidade}
                                 </p>
                             </div>
-                            <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-bold border border-blue-100">
-                                {imovel.tipo}
-                            </span>
+                            <div className="flex gap-2 items-center">
+                                {imovel.ativo === false && (
+                                    <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-bold border border-amber-200">
+                                        Descontinuado
+                                    </span>
+                                )}
+                                <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-bold border border-blue-100">
+                                    {imovel.tipo}
+                                </span>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-y border-gray-100 mb-6">
@@ -117,14 +124,20 @@ const DetalhesImovel = () => {
                                 {imovel.preco ? imovel.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : "Sob Consulta"}
                             </p>
                             
-                            <a 
-                                href={imovel.link} 
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold py-4 rounded-xl transition-all shadow-md hover:shadow-lg mb-3 transform hover:-translate-y-0.5"
-                            >
-                                Ver no site da {imovel.imobiliaria}
-                            </a>
+                            {imovel.ativo === false ? (
+                                <div className="block w-full bg-amber-50 text-amber-800 text-center font-medium py-3 rounded-xl mb-3 border border-amber-200 text-sm">
+                                    ⚠️ Imóvel retirado do ar pela imobiliária
+                                </div>
+                            ) : (
+                                <a 
+                                    href={imovel.link} 
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold py-4 rounded-xl transition-all shadow-md hover:shadow-lg mb-3 transform hover:-translate-y-0.5"
+                                >
+                                    Ver no site da {imovel.imobiliaria}
+                                </a>
+                            )}
                             
                             <button className="block w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-center font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
                                 <Share2 size={18}/> Compartilhar
