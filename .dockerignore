@@ -1,0 +1,11 @@
+frontend/
+dados_imoveis/
+crawlers/
+.git/
+.vscode/
+__pycache__/
+*.pyc
+imoveis_*.json
+credentials.env
+README.md
+

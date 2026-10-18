@@ -1,0 +1,33 @@
+# Credenciais e variáveis de ambiente
+credentials.env
+.env
+.env.*
+!.env.example
+
+# Arquivos JSON de dados capturados
+dados_imoveis/
+dados_imoveis/*.json
+imoveis_*.json
+/*.json
+
+# Cache e artefatos Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Frontend (dependências e build local)
+frontend/node_modules/
+frontend/dist/
+
+# Configurações de IDE / Analisadores
+.vscode/
+.idea/
+.sonarlint/
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+
