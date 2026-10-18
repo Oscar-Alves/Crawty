@@ -15,7 +15,12 @@ const Home = () => {
     const [filtros, setFiltros] = useState(() => {
         try {
             const salvos = sessionStorage.getItem('crawty_filtros');
-            return salvos ? { ...FILTROS_INICIAIS, ...JSON.parse(salvos) } : FILTROS_INICIAIS;
+            if (!salvos) return FILTROS_INICIAIS;
+            const parsed = { ...FILTROS_INICIAIS, ...JSON.parse(salvos) };
+            if (parsed.ordenar_por === 'recentes') {
+                parsed.ordenar_por = 'recente';
+            }
+            return parsed;
         } catch {
             return FILTROS_INICIAIS;
         }

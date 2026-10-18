@@ -16,6 +16,7 @@ import {
     Archive,
 } from "lucide-react";
 import { getEstatisticas } from "../services/api";
+import { FILTROS_INICIAIS } from "../components/Filtros";
 
 const formatarMoeda = (valor) => {
     if (!valor || valor <= 0) return "—";
@@ -69,28 +70,14 @@ const Estatisticas = () => {
 
     const navegarComFiltro = (novosFiltros) => {
         const baseFiltros = {
-            status: "ativos",
-            modalidade: "",
+            ...FILTROS_INICIAIS,
             cidade: cidadeSelecionada || "",
-            bairro: "",
-            imobiliaria: "",
-            tipo: "",
-            subtipo: "",
-            preco_min: "",
-            preco_max: "",
-            quartos: "",
-            suites: "",
-            banheiros: "",
-            vagas: "",
-            area_min: "",
-            area_max: "",
-            apenas_queda_preco: false,
-            busca: "",
-            ordenar_por: "recentes",
+            ordenar_por: "recente",
             ...novosFiltros,
         };
         try {
             sessionStorage.setItem("crawty_filtros", JSON.stringify(baseFiltros));
+            sessionStorage.setItem("crawty_page", "1");
         } catch {
             // ignore storage errors
         }

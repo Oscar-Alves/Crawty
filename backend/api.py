@@ -151,7 +151,7 @@ def listar_imoveis(
     apenas_queda_preco: Optional[bool] = None,
     ordenar_por: Optional[str] = Query(
         None,
-        pattern="^(menor_preco|maior_preco|maior_area|menor_area|recente)$",
+        pattern="^(menor_preco|maior_preco|maior_area|menor_area|recentes?)$",
     ),
     status: str = Query("ativos", pattern="^(ativos|descontinuados|todos)$"),
 ):
@@ -277,7 +277,7 @@ def listar_imoveis(
         sort_criteria = [("area_util", pymongo.DESCENDING), ("area_total", pymongo.DESCENDING)]
     elif ordenar_por == "menor_area":
         sort_criteria = [("area_util", pymongo.ASCENDING), ("area_total", pymongo.ASCENDING)]
-    elif ordenar_por == "recente":
+    elif ordenar_por in ("recente", "recentes"):
         sort_criteria = [("criado_em", pymongo.DESCENDING), ("last_updated", pymongo.DESCENDING)]
 
     cursor = imoveis_collection.find(query).sort(sort_criteria).skip(skip).limit(limit)
