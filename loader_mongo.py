@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pymongo import UpdateOne
 
 from backend.database import imoveis_collection
+from backend.normalizer import normalizar_imovel
 
 DEFAULT_DIR = "dados_imoveis"
 
@@ -70,6 +71,51 @@ def sincronizar_base_historica():
         except Exception as e:
             print(f"Aviso ao sincronizar base histórica: {e}")
 
+def normalizar_base_existente():
+    """
+    Varre todos os documentos já salvos no MongoDB e aplica a normalização
+    de cidade, bairro, tipo, subtipo e campos numéricos.
+    """
+    if imoveis_collection is None:
+        print("Banco de dados não conectado.")
+        return 0
+
+    print("\n-> Normalizando registros existentes no MongoDB...")
+    cursor = imoveis_collection.find({})
+    ops = []
+    total_lidos = 0
+
+    for doc in cursor:
+        total_lidos += 1
+        doc_id = doc.get("_id")
+        copia = {k: v for k, v in doc.items() if k != "_id"}
+        normalizado = normalizar_imovel(copia)
+
+        campos_atualizar = {
+            "bairro": normalizado.get("bairro"),
+            "cidade": normalizado.get("cidade"),
+            "tipo": normalizado.get("tipo"),
+            "titulo": normalizado.get("titulo"),
+            "modalidade": normalizado.get("modalidade"),
+            "quartos": normalizado.get("quartos"),
+            "banheiros": normalizado.get("banheiros"),
+            "vagas": normalizado.get("vagas"),
+            "preco": normalizado.get("preco"),
+            "area_util": normalizado.get("area_util"),
+            "area_total": normalizado.get("area_total"),
+            "extras": normalizado.get("extras", {}),
+        }
+        ops.append(UpdateOne({"_id": doc_id}, {"$set": campos_atualizar}))
+
+    modificados = 0
+    batch_size = 1000
+    for i in range(0, len(ops), batch_size):
+        res = imoveis_collection.bulk_write(ops[i:i + batch_size], ordered=False)
+        modificados += res.modified_count
+
+    print(f"-> Normalização concluída: {modificados} de {total_lidos} imóveis foram atualizados/padronizados.")
+    return modificados
+
 def carregar_arquivo(caminho_arquivo):
     """
     Carrega e faz upsert de um arquivo JSON no MongoDB, mantendo histórico:
@@ -108,6 +154,7 @@ def carregar_arquivo(caminho_arquivo):
         if not isinstance(item, dict) or "id_unico" not in item:
             continue
         
+        normalizar_imovel(item)
         id_unico = item["id_unico"]
         ids_atuais.add(id_unico)
 
@@ -229,13 +276,18 @@ def menu_interativo(arquivos):
 
     print("-" * 65)
     print(" [ T] Enviar TODOS os arquivos listados acima")
+    print(" [ N] Apenas NORMALIZAR toda a base já existente no MongoDB")
     print(" [ 0] Cancelar / Sair")
     print("=" * 65)
 
-    escolha = input("\nEscolha o número do arquivo (ou múltiplos ex: 1,3 ou 'T'): ").strip()
+    escolha = input("\nEscolha o número do arquivo (ou múltiplos ex: 1,3, 'T' ou 'N'): ").strip()
     
     if not escolha or escolha in ['0', 'q', 'Q', 'sair']:
         print("Operação cancelada.")
+        return []
+
+    if escolha.upper() in ['N', 'NORMALIZAR']:
+        normalizar_base_existente()
         return []
 
     if escolha.upper() in ['T', 'TODOS', 'ALL']:
@@ -274,6 +326,12 @@ def main():
     arquivos_para_processar = []
 
     if args:
+        if any(a in ['--normalizar', '-n'] for a in args):
+            normalizar_base_existente()
+            args = [a for a in args if a not in ['--normalizar', '-n']]
+            if not args:
+                return
+
         if any(a in ['--todos', '-t', '--all', '-a'] for a in args):
             arquivos_para_processar = arquivos_disponiveis
         else:

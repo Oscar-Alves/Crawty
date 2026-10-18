@@ -1,6 +1,7 @@
 import requests
 import time
 import logging
+from backend.normalizer import normalizar_imovel
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -49,7 +50,7 @@ class LongattiCrawler:
                     for item in lista_imoveis:
                         # --- PADRONIZAÇÃO AQUI ---
                         try:
-                            imovel_unificado = {
+                            imovel_unificado = normalizar_imovel({
                                 "id_unico": f"Longatti_{item.get('idInterno')}",
                                 "imobiliaria": "Longatti",
                                 "codigo_original": str(item.get('idInterno')),
@@ -72,7 +73,7 @@ class LongattiCrawler:
                                     "logradouro": item.get('logradouro'),
                                     "numero": item.get('numero')
                                 }
-                            }
+                            })
                             imoveis_padronizados.append(imovel_unificado)
                         except Exception as e:
                             logging.error(f"Erro ao padronizar item Longatti: {e}")

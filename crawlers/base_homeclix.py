@@ -1,5 +1,6 @@
 import requests
 import logging
+from backend.normalizer import normalizar_imovel
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -69,7 +70,7 @@ class BaseHomeclixCrawler:
                     for item in lista_imoveis:
                         try:
                             cod = str(item.get('idInterno', '')).strip()
-                            imovel_unificado = {
+                            imovel_unificado = normalizar_imovel({
                                 "id_unico": f"{self.prefixo_id}_{cod}",
                                 "imobiliaria": self.imobiliaria_nome,
                                 "codigo_original": cod,
@@ -93,7 +94,7 @@ class BaseHomeclixCrawler:
                                     "suites": self._converter_para_int(item.get('suites')),
                                     "salas": self._converter_para_int(item.get('salas'))
                                 }
-                            }
+                            })
                             imoveis_padronizados.append(imovel_unificado)
                         except Exception as e:
                             logging.error(f"Erro ao padronizar item {self.imobiliaria_nome}: {e}")

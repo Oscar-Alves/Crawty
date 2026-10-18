@@ -4,6 +4,7 @@ import logging
 import re
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from backend.normalizer import normalizar_imovel
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -203,7 +204,7 @@ class DomiciliumCrawler:
                     "salas": self._limpar_numero(feats.get("Salas", "0"))
                 }
             }
-            return imovel
+            return normalizar_imovel(imovel)
         except Exception as e:
             logging.error(f"Erro ao processar card Domicilium: {e}")
             return None

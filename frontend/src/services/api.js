@@ -1,33 +1,43 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-export const getFiltros = async () => {
+export const getFiltros = async (status = "ativos") => {
     try {
-        const response = await fetch(`${API_URL}/filtros`);
+        const response = await fetch(`${API_URL}/filtros?status=${encodeURIComponent(status)}`);
+        if (!response.ok) throw new Error("Erro ao buscar opções de filtro");
         return await response.json();
     } catch (error) {
         console.error("Erro ao buscar filtros", error);
-        return { cidades: [], bairros: [], tipos: [] };
+        return {
+            cidades: [],
+            bairros: [],
+            bairros_por_cidade: {},
+            tipos: [],
+            subtipos: [],
+            subtipos_por_tipo: {},
+            imobiliarias: [],
+            modalidades: ["VENDA", "ALUGUEL"],
+        };
     }
 };
 
 export const getImoveis = async (params) => {
     const query = new URLSearchParams();
-    
-    // Limpa parâmetros vazios antes de enviar
+
     Object.entries(params).forEach(([key, value]) => {
-        if (value) query.append(key, value);
+        if (value !== undefined && value !== null && value !== "" && value !== false) {
+            query.append(key, value);
+        }
     });
 
     const response = await fetch(`${API_URL}/imoveis?${query.toString()}`);
-    
-    // NOVO: Se o backend retornar erro (ex: 500), forçamos a cair no catch da Home
-    if (!response.ok) throw new Error('Erro ao buscar imóveis do servidor');
-    
+
+    if (!response.ok) throw new Error("Erro ao buscar imóveis do servidor");
+
     return await response.json();
 };
 
 export const getImovelDetalhes = async (id) => {
     const response = await fetch(`${API_URL}/imoveis/${id}`);
-    if (!response.ok) throw new Error('Imóvel não encontrado');
+    if (!response.ok) throw new Error("Imóvel não encontrado");
     return await response.json();
 };
