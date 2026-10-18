@@ -4,7 +4,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt
 
 # Copia a pasta backend para dentro de /app/backend
 COPY backend/ ./backend/

@@ -16,6 +16,139 @@ import {
     History,
 } from 'lucide-react';
 
+const formatarMoeda = (valor) => {
+    if (!valor || valor <= 0) return 'Sob Consulta';
+    return Number(valor).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+    });
+};
+
+const construirLinkRastreado = (urlOriginal) => {
+    if (!urlOriginal) return '#';
+    const separador = urlOriginal.includes('?') ? '&' : '?';
+    return `${urlOriginal}${separador}utm_source=hubimoveis&utm_medium=portal`;
+};
+
+const formatarEnderecoCompleto = (imovel) => {
+    const logradouro = imovel.extras?.logradouro;
+    const numero = imovel.extras?.numero;
+    const partes = [];
+
+    if (logradouro) {
+        partes.push(numero ? `${logradouro}, ${numero} - ` : `${logradouro} - `);
+    }
+    if (imovel.bairro && imovel.bairro !== 'Não Informado') {
+        partes.push(`${imovel.bairro}, `);
+    }
+    partes.push(imovel.cidade || '');
+    return partes.join('');
+};
+
+const GaleriaFotos = ({ fotos, fotoAtiva, onSelectFoto }) => {
+    const listaFotos = Array.isArray(fotos) ? fotos : [];
+    const fotoPrincipal = listaFotos[fotoAtiva] || 'https://placehold.co/800x600?text=Sem+Foto';
+
+    return (
+        <>
+            <div className="bg-gray-100 rounded-2xl overflow-hidden h-[380px] md:h-[500px] mb-4 relative group">
+                <img
+                    src={fotoPrincipal}
+                    className="w-full h-full object-contain bg-black"
+                    alt="Foto Principal"
+                />
+                {listaFotos.length > 0 && (
+                    <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-xs backdrop-blur-sm">
+                        {fotoAtiva + 1} / {listaFotos.length}
+                    </div>
+                )}
+            </div>
+
+            {listaFotos.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-2 mb-8 custom-scrollbar">
+                    {listaFotos.map((foto, idx) => (
+                        <button
+                            key={foto}
+                            type="button"
+                            onClick={() => onSelectFoto(idx)}
+                            className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                                fotoAtiva === idx
+                                    ? 'border-blue-600 opacity-100'
+                                    : 'border-transparent opacity-60 hover:opacity-100'
+                            }`}
+                        >
+                            <img src={foto} className="w-full h-full object-cover" alt="" />
+                        </button>
+                    ))}
+                </div>
+            )}
+        </>
+    );
+};
+
+const ListaDiferenciais = ({ salas, atributosStr }) => {
+    const atributos = atributosStr
+        ? atributosStr
+              .split(',')
+              .map((a) => a.trim())
+              .filter(Boolean)
+        : [];
+
+    return (
+        <div className="flex flex-wrap gap-2 mb-6">
+            {salas > 0 && (
+                <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-100">
+                    {salas} {salas > 1 ? 'Salas' : 'Sala'}
+                </span>
+            )}
+            {atributos.length > 0 ? (
+                atributos.map((attr) => (
+                    <span
+                        key={attr}
+                        className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-100"
+                    >
+                        {attr}
+                    </span>
+                ))
+            ) : (
+                salas === 0 && (
+                    <p className="text-gray-400 italic text-sm">
+                        Nenhum atributo adicional informado.
+                    </p>
+                )
+            )}
+        </div>
+    );
+};
+
+const SecaoHistoricoPrecos = ({ historicoPrecos }) => {
+    if (!Array.isArray(historicoPrecos) || historicoPrecos.length <= 1) {
+        return null;
+    }
+
+    return (
+        <div className="mt-6 pt-6 border-t border-gray-100">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-3">
+                <History size={16} className="text-blue-600" />
+                Histórico de Preços Capturados
+            </h3>
+            <div className="space-y-2">
+                {historicoPrecos.map((reg) => (
+                    <div
+                        key={`${reg.data || 'sem-data'}-${reg.preco}`}
+                        className="flex items-center justify-between text-xs bg-gray-50 px-3 py-2 rounded-lg border border-gray-100"
+                    >
+                        <span className="text-gray-500">
+                            {reg.data ? new Date(reg.data).toLocaleDateString('pt-BR') : '-'}
+                        </span>
+                        <span className="font-bold text-gray-800">{formatarMoeda(reg.preco)}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const DetalhesImovel = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -33,48 +166,40 @@ const DetalhesImovel = () => {
 
     const compartilhar = () => {
         if (navigator.clipboard) {
-            navigator.clipboard.writeText(window.location.href);
-            setCopiado(true);
-            setTimeout(() => setCopiado(false), 2000);
+            navigator.clipboard
+                .writeText(window.location.href)
+                .then(() => {
+                    setCopiado(true);
+                    setTimeout(() => setCopiado(false), 2000);
+                })
+                .catch(() => {});
         }
     };
 
-    const formatarMoeda = (valor) => {
-        if (!valor || valor <= 0) return 'Sob Consulta';
-        return Number(valor).toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-        });
-    };
-
-    const construirLinkRastreado = (urlOriginal) => {
-        if (!urlOriginal) return '#';
-        const separador = urlOriginal.includes('?') ? '&' : '?';
-        return `${urlOriginal}${separador}utm_source=hubimoveis&utm_medium=portal`;
-    };
-
-    if (loading)
+    if (loading) {
         return (
             <div className="h-screen flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
         );
-    if (!imovel) return <div className="text-center py-20">Imóvel não encontrado.</div>;
+    }
 
-    const logradouro = imovel.extras?.logradouro;
-    const numero = imovel.extras?.numero;
+    if (!imovel) {
+        return <div className="text-center py-20">Imóvel não encontrado.</div>;
+    }
+
     const subtipo = imovel.extras?.subtipo;
+    const exibirSubtipo = Boolean(subtipo && subtipo !== 'Padrão' && subtipo !== imovel.tipo);
     const suites = imovel.extras?.suites || 0;
     const salas = imovel.extras?.salas || 0;
-    const historicoPrecos = Array.isArray(imovel.historico_precos) ? imovel.historico_precos : [];
-    const baixouPreco =
-        imovel.preco_anterior &&
-        imovel.preco > 0 &&
-        imovel.preco_anterior > imovel.preco;
+    const baixouPreco = Boolean(
+        imovel.preco_anterior && imovel.preco > 0 && imovel.preco_anterior > imovel.preco
+    );
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
             <button
+                type="button"
                 onClick={() => navigate(-1)}
                 className="flex items-center text-gray-500 hover:text-blue-600 mb-6 transition-colors font-medium text-sm"
             >
@@ -82,43 +207,13 @@ const DetalhesImovel = () => {
             </button>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Coluna da Esquerda: Fotos e Infos */}
                 <div className="lg:col-span-2">
-                    <div className="bg-gray-100 rounded-2xl overflow-hidden h-[380px] md:h-[500px] mb-4 relative group">
-                        <img
-                            src={
-                                imovel.fotos?.[fotoAtiva] ||
-                                'https://placehold.co/800x600?text=Sem+Foto'
-                            }
-                            className="w-full h-full object-contain bg-black"
-                            alt="Foto Principal"
-                        />
-                        {imovel.fotos?.length > 0 && (
-                            <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-xs backdrop-blur-sm">
-                                {fotoAtiva + 1} / {imovel.fotos.length}
-                            </div>
-                        )}
-                    </div>
+                    <GaleriaFotos
+                        fotos={imovel.fotos}
+                        fotoAtiva={fotoAtiva}
+                        onSelectFoto={setFotoAtiva}
+                    />
 
-                    {imovel.fotos?.length > 1 && (
-                        <div className="flex gap-2 overflow-x-auto pb-2 mb-8 custom-scrollbar">
-                            {imovel.fotos.map((foto, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => setFotoAtiva(idx)}
-                                    className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                                        fotoAtiva === idx
-                                            ? 'border-blue-600 opacity-100'
-                                            : 'border-transparent opacity-60 hover:opacity-100'
-                                    }`}
-                                >
-                                    <img src={foto} className="w-full h-full object-cover" alt="" />
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Títulos e Detalhes */}
                     <div className="bg-white rounded-2xl border border-gray-100 p-6 md:p-8 shadow-sm mb-8">
                         <div className="flex flex-wrap justify-between items-start gap-4 mb-4">
                             <div>
@@ -126,7 +221,7 @@ const DetalhesImovel = () => {
                                     <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">
                                         {imovel.tipo}
                                     </span>
-                                    {subtipo && subtipo !== 'Padrão' && subtipo !== imovel.tipo && (
+                                    {exibirSubtipo && (
                                         <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold">
                                             {subtipo}
                                         </span>
@@ -147,13 +242,7 @@ const DetalhesImovel = () => {
                                 </h1>
                                 <p className="text-gray-500 flex items-center gap-2 text-sm">
                                     <MapPin size={18} className="text-blue-600 shrink-0" />
-                                    <span>
-                                        {logradouro ? `${logradouro}${numero ? `, ${numero}` : ''} - ` : ''}
-                                        {imovel.bairro && imovel.bairro !== 'Não Informado'
-                                            ? `${imovel.bairro}, `
-                                            : ''}
-                                        {imovel.cidade}
-                                    </span>
+                                    <span>{formatarEnderecoCompleto(imovel)}</span>
                                 </p>
                             </div>
                         </div>
@@ -216,56 +305,9 @@ const DetalhesImovel = () => {
                         <h3 className="text-base font-bold text-gray-900 mb-3">
                             Diferenciais e Informações Adicionais
                         </h3>
-                        <div className="flex flex-wrap gap-2 mb-6">
-                            {salas > 0 && (
-                                <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-100">
-                                    {salas} Sala{salas > 1 ? 's' : ''}
-                                </span>
-                            )}
-                            {imovel.extras?.atributos ? (
-                                imovel.extras.atributos.split(',').map((attr, i) => (
-                                    <span
-                                        key={i}
-                                        className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-100"
-                                    >
-                                        {attr.trim()}
-                                    </span>
-                                ))
-                            ) : (
-                                salas === 0 && (
-                                    <p className="text-gray-400 italic text-sm">
-                                        Nenhum atributo adicional informado.
-                                    </p>
-                                )
-                            )}
-                        </div>
+                        <ListaDiferenciais salas={salas} atributosStr={imovel.extras?.atributos} />
 
-                        {/* Histórico de Preços (quando houver mais de 1 registro ou variação) */}
-                        {historicoPrecos.length > 1 && (
-                            <div className="mt-6 pt-6 border-t border-gray-100">
-                                <h3 className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-3">
-                                    <History size={16} className="text-blue-600" />
-                                    Histórico de Preços Capturados
-                                </h3>
-                                <div className="space-y-2">
-                                    {historicoPrecos.map((reg, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="flex items-center justify-between text-xs bg-gray-50 px-3 py-2 rounded-lg border border-gray-100"
-                                        >
-                                            <span className="text-gray-500">
-                                                {reg.data
-                                                    ? new Date(reg.data).toLocaleDateString('pt-BR')
-                                                    : '-'}
-                                            </span>
-                                            <span className="font-bold text-gray-800">
-                                                {formatarMoeda(reg.preco)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                        <SecaoHistoricoPrecos historicoPrecos={imovel.historico_precos} />
 
                         <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 mt-8">
                             {imovel.criado_em && (
@@ -284,7 +326,6 @@ const DetalhesImovel = () => {
                     </div>
                 </div>
 
-                {/* Coluna da Direita: Card Flutuante */}
                 <div className="lg:col-span-1">
                     <div className="sticky top-24 space-y-4">
                         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-lg">
@@ -317,6 +358,7 @@ const DetalhesImovel = () => {
                             )}
 
                             <button
+                                type="button"
                                 onClick={compartilhar}
                                 className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-center font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
                             >

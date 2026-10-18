@@ -36,7 +36,7 @@ class Imovel(BaseModel):
     area_total: Optional[float] = 0.0
     link: str
     fotos: List[str] = []
-    extras: Optional[ExtrasImovel] = {}
+    extras: Optional[ExtrasImovel] = Field(default_factory=ExtrasImovel)
     criado_em: Optional[datetime] = None
     last_updated: Optional[datetime] = None
     ativo: bool = True

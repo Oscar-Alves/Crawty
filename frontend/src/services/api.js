@@ -1,8 +1,12 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
+const STATUS_PERMITIDOS = ["ativos", "descontinuados", "todos"];
+
 export const getFiltros = async (status = "ativos") => {
     try {
-        const response = await fetch(`${API_URL}/filtros?status=${encodeURIComponent(status)}`);
+        const statusSeguro = STATUS_PERMITIDOS.includes(status) ? status : "ativos";
+        const query = new URLSearchParams({ status: statusSeguro });
+        const response = await fetch(`${API_URL}/filtros?${query.toString()}`);
         if (!response.ok) throw new Error("Erro ao buscar opções de filtro");
         return await response.json();
     } catch (error) {

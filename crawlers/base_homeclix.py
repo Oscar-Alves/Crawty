@@ -4,6 +4,7 @@ from backend.normalizer import normalizar_imovel
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 class BaseHomeclixCrawler:
     """
     Crawler base para imobiliárias hospedadas na plataforma Homeclix.
@@ -37,15 +38,49 @@ class BaseHomeclixCrawler:
         except (ValueError, TypeError):
             return 0
 
+    def _padronizar_item(self, item, modalidade_nome):
+        cod = str(item.get('idInterno', '')).strip()
+        return normalizar_imovel({
+            "id_unico": f"{self.prefixo_id}_{cod}",
+            "imobiliaria": self.imobiliaria_nome,
+            "codigo_original": cod,
+            "titulo": item.get('titulo') or "Sem título",
+            "modalidade": modalidade_nome,
+            "tipo": item.get('tipo') or "Imóvel",
+            "preco": self._converter_para_float(item.get('valor')),
+            "bairro": item.get('bairro') or "Não Informado",
+            "cidade": item.get('cidade') or "São João del Rei",
+            "quartos": self._converter_para_int(item.get('quartos')),
+            "banheiros": self._converter_para_int(item.get('banheiros')),
+            "vagas": self._converter_para_int(item.get('garagens')),
+            "area_util": self._converter_para_float(item.get('areaConstruida')),
+            "area_total": self._converter_para_float(item.get('areaTerreno')),
+            "link": f"{self.site_url}/imovel/{cod}" if self.site_url else "",
+            "fotos": item.get('fotos', []) or [],
+            "extras": {
+                "subtipo": item.get('subtipo'),
+                "logradouro": item.get('logradouro'),
+                "numero": item.get('numero'),
+                "suites": self._converter_para_int(item.get('suites')),
+                "salas": self._converter_para_int(item.get('salas'))
+            }
+        })
+
+    def _processar_lote(self, lista_imoveis, modalidade_nome, destino):
+        for item in lista_imoveis:
+            try:
+                destino.append(self._padronizar_item(item, modalidade_nome))
+            except Exception:
+                logging.exception(f"Erro ao padronizar item {self.imobiliaria_nome}")
+
     def _coletar_modalidade(self, modalidade_nome):
         imoveis_padronizados = []
         skip = 0
         take = 50
-        continuar_buscando = True
 
         logging.info(f"--- {self.imobiliaria_nome}: {modalidade_nome} ---")
 
-        while continuar_buscando:
+        while True:
             url_atual = self.base_url.format(skip, take)
             try:
                 response = requests.post(
@@ -66,48 +101,17 @@ class BaseHomeclixCrawler:
 
                 logging.info(f"Retornados {qtd_encontrada} imóveis de {modalidade_nome} (skip={skip}, total na base={total_disponivel})")
 
-                if qtd_encontrada > 0:
-                    for item in lista_imoveis:
-                        try:
-                            cod = str(item.get('idInterno', '')).strip()
-                            imovel_unificado = normalizar_imovel({
-                                "id_unico": f"{self.prefixo_id}_{cod}",
-                                "imobiliaria": self.imobiliaria_nome,
-                                "codigo_original": cod,
-                                "titulo": item.get('titulo') or "Sem título",
-                                "modalidade": modalidade_nome,
-                                "tipo": item.get('tipo') or "Imóvel",
-                                "preco": self._converter_para_float(item.get('valor')),
-                                "bairro": item.get('bairro') or "Não Informado",
-                                "cidade": item.get('cidade') or "São João del Rei",
-                                "quartos": self._converter_para_int(item.get('quartos')),
-                                "banheiros": self._converter_para_int(item.get('banheiros')),
-                                "vagas": self._converter_para_int(item.get('garagens')),
-                                "area_util": self._converter_para_float(item.get('areaConstruida')),
-                                "area_total": self._converter_para_float(item.get('areaTerreno')),
-                                "link": f"{self.site_url}/imovel/{cod}" if self.site_url else "",
-                                "fotos": item.get('fotos', []) or [],
-                                "extras": {
-                                    "subtipo": item.get('subtipo'),
-                                    "logradouro": item.get('logradouro'),
-                                    "numero": item.get('numero'),
-                                    "suites": self._converter_para_int(item.get('suites')),
-                                    "salas": self._converter_para_int(item.get('salas'))
-                                }
-                            })
-                            imoveis_padronizados.append(imovel_unificado)
-                        except Exception as e:
-                            logging.error(f"Erro ao padronizar item {self.imobiliaria_nome}: {e}")
+                if qtd_encontrada == 0:
+                    break
 
-                    skip += take
-                    if skip >= total_disponivel:
-                        continuar_buscando = False
-                else:
-                    continuar_buscando = False
+                self._processar_lote(lista_imoveis, modalidade_nome, imoveis_padronizados)
+                skip += take
+                if skip >= total_disponivel:
+                    break
 
-            except Exception as e:
-                logging.error(f"Erro {self.imobiliaria_nome}: {e}")
-                continuar_buscando = False
+            except Exception:
+                logging.exception(f"Erro {self.imobiliaria_nome}")
+                break
 
         return imoveis_padronizados
 

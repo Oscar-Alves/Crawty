@@ -16,7 +16,7 @@ import {
     Archive,
 } from "lucide-react";
 import { getEstatisticas } from "../services/api";
-import { FILTROS_INICIAIS } from "../components/Filtros";
+import { FILTROS_INICIAIS, salvarFiltrosSalvos, salvarPaginaSalva } from "../components/Filtros";
 
 const formatarMoeda = (valor) => {
     if (!valor || valor <= 0) return "—";
@@ -62,7 +62,7 @@ const Estatisticas = () => {
                 if (ativo) setLoading(false);
             }
         };
-        carregar();
+        void carregar();
         return () => {
             ativo = false;
         };
@@ -75,12 +75,8 @@ const Estatisticas = () => {
             ordenar_por: "recente",
             ...novosFiltros,
         };
-        try {
-            sessionStorage.setItem("crawty_filtros", JSON.stringify(baseFiltros));
-            sessionStorage.setItem("crawty_page", "1");
-        } catch {
-            // ignore storage errors
-        }
+        salvarFiltrosSalvos(baseFiltros);
+        salvarPaginaSalva(1);
         navigate("/");
     };
 
@@ -141,12 +137,16 @@ const Estatisticas = () => {
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
                         <div className="bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl px-3.5 py-2">
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-blue-200 mb-0.5">
+                            <label
+                                htmlFor="seletor-cidade-estatisticas"
+                                className="block text-[10px] font-bold uppercase tracking-wider text-blue-200 mb-0.5"
+                            >
                                 Recorte Geográfico
                             </label>
                             <div className="flex items-center gap-2">
                                 <MapPin size={15} className="text-blue-300 shrink-0" />
                                 <select
+                                    id="seletor-cidade-estatisticas"
                                     value={cidadeSelecionada}
                                     onChange={(e) => setCidadeSelecionada(e.target.value)}
                                     className="bg-transparent text-white font-semibold text-sm focus:outline-none cursor-pointer pr-2"
@@ -345,10 +345,11 @@ const Estatisticas = () => {
 
                             <div className="space-y-3.5">
                                 {dados?.por_tipo?.map((item) => (
-                                    <div
+                                    <button
+                                        type="button"
                                         key={item.tipo}
                                         onClick={() => navegarComFiltro({ tipo: item.tipo })}
-                                        className="group p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all cursor-pointer"
+                                        className="w-full text-left group p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all cursor-pointer"
                                     >
                                         <div className="flex items-center justify-between text-sm mb-1.5">
                                             <div className="flex items-center gap-2">
@@ -391,7 +392,7 @@ const Estatisticas = () => {
                                                 </span>
                                             )}
                                         </div>
-                                    </div>
+                                    </button>
                                 ))}
                             </div>
                         </div>

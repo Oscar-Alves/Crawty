@@ -8,9 +8,16 @@ from backend.normalizer import normalizar_imovel
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+BAIRRO_NAO_INFORMADO = "Não Informado"
+CIDADE_PADRAO = "São João del Rei"
+CIDADE_SANTA_CRUZ = "Santa Cruz de Minas"
+CIDADE_TIRADENTES = "Tiradentes"
+DOMICILIUM_BASE_URL = "https://www.domiciliumimoveis.com.br"
+
+
 class DomiciliumCrawler:
     def __init__(self):
-        self.endpoint = "https://www.domiciliumimoveis.com.br/fetch_pages.php"
+        self.endpoint = f"{DOMICILIUM_BASE_URL}/fetch_pages.php"
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -51,6 +58,51 @@ class DomiciliumCrawler:
         except (ValueError, TypeError):
             return 0
 
+    def _normalizar_url_imagem(self, img_url):
+        if not img_url:
+            return ""
+        if img_url.startswith('http'):
+            return img_url
+        if img_url.startswith('//'):
+            return f"https:{img_url}"
+        return f"{DOMICILIUM_BASE_URL}{img_url}"
+
+    def _extrair_fotos_slides(self, soup):
+        fotos_extras = []
+        for slide in soup.find_all('div', class_='sp-slide'):
+            img_url = slide.get('data-src')
+            if not img_url:
+                img_tag = slide.find('img', class_='sp-image')
+                img_url = img_tag.get('src') if img_tag else None
+            url_completa = self._normalizar_url_imagem(img_url)
+            if url_completa and url_completa not in fotos_extras:
+                fotos_extras.append(url_completa)
+        return fotos_extras
+
+    def _extrair_caracteristicas(self, soup):
+        caracteristicas = {}
+        tab_caracteristicas = soup.select_one('#tab-0 ul.property-features')
+        if not tab_caracteristicas:
+            return caracteristicas
+        for item in tab_caracteristicas.find_all('li'):
+            valor_tag = item.find('b')
+            if valor_tag:
+                valor = valor_tag.get_text(strip=True)
+                chave = item.get_text(" ", strip=True).replace(valor, "").replace(":", "").strip()
+                caracteristicas[chave] = valor
+        return caracteristicas
+
+    def _extrair_atributos(self, soup):
+        ul_atributos = soup.select_one('ul.checkboxes')
+        if not ul_atributos:
+            return ""
+        lista_atributos = [
+            item.get_text(strip=True)
+            for item in ul_atributos.find_all('li')
+            if item.get_text(strip=True)
+        ]
+        return ", ".join(lista_atributos)
+
     def _obter_detalhes_imovel(self, link_imovel):
         detalhes = {"caracteristicas": {}, "atributos": "", "fotos_extras": []}
         if not link_imovel or not link_imovel.startswith('http'):
@@ -62,103 +114,81 @@ class DomiciliumCrawler:
                 return detalhes
 
             soup = BeautifulSoup(response.text, 'html.parser')
+            detalhes["fotos_extras"] = self._extrair_fotos_slides(soup)
+            detalhes["caracteristicas"] = self._extrair_caracteristicas(soup)
+            detalhes["atributos"] = self._extrair_atributos(soup)
 
-            # Fotos Extras
-            slides = soup.find_all('div', class_='sp-slide')
-            for slide in slides:
-                img_url = slide.get('data-src')
-                if not img_url:
-                    img_tag = slide.find('img', class_='sp-image')
-                    if img_tag:
-                        img_url = img_tag.get('src')
-
-                if img_url:
-                    if not img_url.startswith('http'):
-                        if img_url.startswith('//'):
-                            img_url = f"https:{img_url}"
-                        else:
-                            img_url = f"https://www.domiciliumimoveis.com.br{img_url}"
-
-                    if img_url not in detalhes["fotos_extras"]:
-                        detalhes["fotos_extras"].append(img_url)
-
-            # Características
-            tab_caracteristicas = soup.select_one('#tab-0 ul.property-features')
-            if tab_caracteristicas:
-                for item in tab_caracteristicas.find_all('li'):
-                    valor_tag = item.find('b')
-                    if valor_tag:
-                        valor = valor_tag.get_text(strip=True)
-                        chave = item.get_text(" ", strip=True).replace(valor, "").replace(":", "").strip()
-                        detalhes["caracteristicas"][chave] = valor
-
-            # Atributos
-            lista_atributos = []
-            ul_atributos = soup.select_one('ul.checkboxes')
-            if ul_atributos:
-                for item in ul_atributos.find_all('li'):
-                    texto = item.get_text(strip=True)
-                    if texto:
-                        lista_atributos.append(texto)
-            detalhes["atributos"] = ", ".join(lista_atributos)
-
-        except Exception as e:
-            logging.error(f"Erro detalhes {link_imovel}: {e}")
+        except Exception:
+            logging.exception(f"Erro detalhes {link_imovel}")
 
         return detalhes
 
+    def _extrair_localizacao_card(self, card):
+        h2_tag = card.find('h2', class_='neighborhood-and-city')
+        local_raw = h2_tag.get_text(" ", strip=True) if h2_tag else ""
+        if "São João Del Rei" in local_raw:
+            bairro = local_raw.split("São João Del Rei")[0].strip() or BAIRRO_NAO_INFORMADO
+            return bairro, CIDADE_PADRAO
+        if CIDADE_TIRADENTES in local_raw:
+            bairro = local_raw.split(CIDADE_TIRADENTES)[0].strip() or BAIRRO_NAO_INFORMADO
+            return bairro, CIDADE_TIRADENTES
+        if CIDADE_SANTA_CRUZ in local_raw:
+            bairro = local_raw.split(CIDADE_SANTA_CRUZ)[0].strip() or BAIRRO_NAO_INFORMADO
+            return bairro, CIDADE_SANTA_CRUZ
+        return (local_raw or BAIRRO_NAO_INFORMADO), CIDADE_PADRAO
+
+    def _extrair_capa_e_link(self, card):
+        link_tag = card.find('a', class_='listing-img-container')
+        if not link_tag:
+            return "", []
+
+        href = link_tag.get('href', '')
+        link = f"{DOMICILIUM_BASE_URL}{href}" if href.startswith('/') else href
+        fotos = []
+
+        img_capa = link_tag.find('div', class_='imgAnuncio')
+        if img_capa and 'style' in img_capa.attrs:
+            m = re.search(r'url\((.*?)\)', img_capa['style'])
+            if m:
+                src_capa = m.group(1).replace('&amp;', '&').strip('\'"')
+                fotos.append(self._normalizar_url_imagem(src_capa))
+
+        return link, fotos
+
+    def _extrair_area_card(self, titulo_tag):
+        if not titulo_tag:
+            return 0.0
+        partes_h4 = titulo_tag.decode_contents().split('<br')
+        return self._limpar_area(partes_h4[1]) if len(partes_h4) > 1 else 0.0
+
+    def _inferir_tipo_por_titulo(self, titulo):
+        titulo_lower = titulo.lower()
+        if "lote" in titulo_lower or "terreno" in titulo_lower:
+            return "Terreno"
+        if "casa" in titulo_lower:
+            return "Casa"
+        if "apartamento" in titulo_lower:
+            return "Apartamento"
+        if "comercial" in titulo_lower:
+            return "Comercial"
+        return "Imóvel"
+
     def _processar_card(self, card, modalidade):
         try:
-            titulo_tag = card.find('h4', class_='titulo-limite')
-            titulo = titulo_tag.get_text(" ", strip=True) if titulo_tag else ""
-            codigo = card.find('span', class_='span-cod-lista').get_text(strip=True).replace('Cód.', '').strip() if card.find('span', class_='span-cod-lista') else ""
-            valor_raw = card.find('span', class_='listing-price').get_text(strip=True) if card.find('span', class_='listing-price') else "0"
-
+            cod_tag = card.find('span', class_='span-cod-lista')
+            codigo = cod_tag.get_text(strip=True).replace('Cód.', '').strip() if cod_tag else ""
             if not codigo:
                 return None
 
-            # Localização: "Matosinhos São João Del Rei / MG"
-            local_raw = card.find('h2', class_='neighborhood-and-city').get_text(" ", strip=True) if card.find('h2', class_='neighborhood-and-city') else ""
-            bairro = "Não Informado"
-            cidade = "São João del Rei"
-            if "São João Del Rei" in local_raw:
-                partes = local_raw.split("São João Del Rei")
-                bairro = partes[0].strip() or "Não Informado"
-            elif "Tiradentes" in local_raw:
-                cidade = "Tiradentes"
-                partes = local_raw.split("Tiradentes")
-                bairro = partes[0].strip() or "Não Informado"
-            elif "Santa Cruz de Minas" in local_raw:
-                cidade = "Santa Cruz de Minas"
-                partes = local_raw.split("Santa Cruz de Minas")
-                bairro = partes[0].strip() or "Não Informado"
-            elif local_raw:
-                bairro = local_raw
+            titulo_tag = card.find('h4', class_='titulo-limite')
+            titulo = titulo_tag.get_text(" ", strip=True) if titulo_tag else ""
+            preco_tag = card.find('span', class_='listing-price')
+            valor_raw = preco_tag.get_text(strip=True) if preco_tag else "0"
 
-            link_tag = card.find('a', class_='listing-img-container')
-            link = ""
-            fotos = []
+            bairro, cidade = self._extrair_localizacao_card(card)
+            link, fotos = self._extrair_capa_e_link(card)
+            area_card = self._extrair_area_card(titulo_tag)
 
-            if link_tag:
-                href = link_tag.get('href', '')
-                link = f"https://www.domiciliumimoveis.com.br{href}" if href.startswith('/') else href
-                img_capa = link_tag.find('div', class_='imgAnuncio')
-                if img_capa and 'style' in img_capa.attrs:
-                    m = re.search(r'url\((.*?)\)', img_capa['style'])
-                    if m:
-                        src_capa = m.group(1).replace('&amp;', '&').strip('\'"')
-                        if not src_capa.startswith('http'):
-                            src_capa = f"https://www.domiciliumimoveis.com.br{src_capa}"
-                        fotos.append(src_capa)
-
-            # Tenta pegar área informada no card como fallback
-            area_card = 0.0
-            if titulo_tag:
-                partes_h4 = titulo_tag.decode_contents().split('<br')
-                if len(partes_h4) > 1:
-                    area_card = self._limpar_area(partes_h4[1])
-
-            # Coleta detalhes da página individual
             detalhes = self._obter_detalhes_imovel(link) if link else {}
             feats = detalhes.get("caracteristicas", {})
 
@@ -167,19 +197,8 @@ class DomiciliumCrawler:
                     fotos.append(f)
 
             area_util = self._limpar_area(feats.get("Área construída"))
-            if area_util == 0.0 and area_card > 0.0:
+            if area_util <= 0.0 and area_card > 0.0:
                 area_util = area_card
-
-            tipo = "Imóvel"
-            titulo_lower = titulo.lower()
-            if "lote" in titulo_lower or "terreno" in titulo_lower:
-                tipo = "Terreno"
-            elif "casa" in titulo_lower:
-                tipo = "Casa"
-            elif "apartamento" in titulo_lower:
-                tipo = "Apartamento"
-            elif "comercial" in titulo_lower:
-                tipo = "Comercial"
 
             imovel = {
                 "id_unico": f"Domicilium_{codigo}",
@@ -187,7 +206,7 @@ class DomiciliumCrawler:
                 "codigo_original": codigo,
                 "titulo": titulo,
                 "modalidade": modalidade,
-                "tipo": tipo,
+                "tipo": self._inferir_tipo_por_titulo(titulo),
                 "preco": self._limpar_valor(valor_raw),
                 "bairro": bairro,
                 "cidade": cidade,
@@ -205,8 +224,8 @@ class DomiciliumCrawler:
                 }
             }
             return normalizar_imovel(imovel)
-        except Exception as e:
-            logging.error(f"Erro ao processar card Domicilium: {e}")
+        except Exception:
+            logging.exception("Erro ao processar card Domicilium")
             return None
 
     def _extrair_dados_html(self, html_content, modalidade):
@@ -217,7 +236,6 @@ class DomiciliumCrawler:
             return []
 
         imoveis_padronizados = []
-        # Processa cards com concorrência para obter detalhes mais rapidamente
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = [executor.submit(self._processar_card, card, modalidade) for card in cards]
             for future in as_completed(futures):
@@ -230,11 +248,10 @@ class DomiciliumCrawler:
     def _coletar_modalidade(self, nome_modalidade, filtro_string):
         imoveis = []
         page = 1
-        continuar = True
 
         logging.info(f"--- Iniciando Domicilium: {nome_modalidade} ---")
 
-        while continuar:
+        while True:
             try:
                 payload = {'page': str(page), 'FiltroBusca': filtro_string}
                 response = self.session.post(self.endpoint, data=payload, timeout=20)
@@ -243,17 +260,16 @@ class DomiciliumCrawler:
                     break
 
                 novos = self._extrair_dados_html(response.text, nome_modalidade)
-
                 if not novos:
-                    continuar = False
-                else:
-                    logging.info(f"Domicilium {nome_modalidade} pág {page}: {len(novos)} imóveis processados")
-                    imoveis.extend(novos)
-                    page += 1
-                    time.sleep(0.5)
-            except Exception as e:
-                logging.error(f"Erro Domicilium pag {page}: {e}")
-                continuar = False
+                    break
+
+                logging.info(f"Domicilium {nome_modalidade} pág {page}: {len(novos)} imóveis processados")
+                imoveis.extend(novos)
+                page += 1
+                time.sleep(0.5)
+            except Exception:
+                logging.exception(f"Erro Domicilium pag {page}")
+                break
 
         return imoveis
 
@@ -262,6 +278,7 @@ class DomiciliumCrawler:
         todos.extend(self._coletar_modalidade("VENDA", self.filtro_venda))
         todos.extend(self._coletar_modalidade("ALUGUEL", self.filtro_aluguel))
         return todos
+
 
 if __name__ == "__main__":
     crawler = DomiciliumCrawler()

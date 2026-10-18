@@ -1,38 +1,74 @@
 import { MapPin, BedDouble, Bath, Car, Ruler, TrendingDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const ImovelCard = ({ imovel }) => {
-    const formatMoney = (value) => {
-        if (!value || value <= 0) return 'Sob Consulta';
-        return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    };
+const FOTO_FALLBACK = 'https://placehold.co/600x400.png?text=Sem+Foto';
 
-    const getBadgeColor = (modalidade) => {
-        return modalidade === 'VENDA'
-            ? 'bg-blue-600/95 text-white border-blue-500'
-            : 'bg-emerald-600/95 text-white border-emerald-500';
-    };
+const formatMoney = (value) => {
+    if (!value || value <= 0) return 'Sob Consulta';
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
-    const fotoCapa =
-        imovel.fotos && imovel.fotos.length > 0
-            ? imovel.fotos[0]
-            : 'https://placehold.co/600x400.png?text=Sem+Foto';
+const getBadgeColor = (modalidade) => {
+    return modalidade === 'VENDA'
+        ? 'bg-blue-600/95 text-white border-blue-500'
+        : 'bg-emerald-600/95 text-white border-emerald-500';
+};
 
+const obterLabelQuartos = (suites) => {
+    if (suites <= 0) return 'Quartos';
+    const sufixo = suites > 1 ? 's' : '';
+    return `${suites} suíte${sufixo}`;
+};
+
+const obterEnderecoCurto = (imovel) => {
+    if (imovel.bairro && imovel.bairro !== 'Não Informado') {
+        return `${imovel.bairro}, ${imovel.cidade}`;
+    }
+    return imovel.cidade;
+};
+
+const obterMetricasCard = (imovel) => {
+    const fotoCapa = imovel.fotos?.length > 0 ? imovel.fotos[0] : FOTO_FALLBACK;
     const subtipo = imovel.extras?.subtipo;
-    const exibirSubtipo =
-        subtipo && subtipo !== 'Padrão' && subtipo.toLowerCase() !== (imovel.tipo || '').toLowerCase();
-
+    const tipoLower = (imovel.tipo || '').toLowerCase();
+    const exibirSubtipo = Boolean(
+        subtipo && subtipo !== 'Padrão' && subtipo.toLowerCase() !== tipoLower
+    );
     const suites = imovel.extras?.suites || 0;
     const areaExibida = imovel.area_util || imovel.area_total || 0;
-
-    const baixouPreco =
-        imovel.preco_anterior &&
-        imovel.preco > 0 &&
-        imovel.preco_anterior > imovel.preco;
-
+    const baixouPreco = Boolean(
+        imovel.preco_anterior && imovel.preco > 0 && imovel.preco_anterior > imovel.preco
+    );
     const percentualDesconto = baixouPreco
         ? Math.round(((imovel.preco_anterior - imovel.preco) / imovel.preco_anterior) * 100)
         : 0;
+
+    return {
+        fotoCapa,
+        subtipo,
+        exibirSubtipo,
+        suites,
+        areaExibida,
+        baixouPreco,
+        percentualDesconto,
+    };
+};
+
+const ImovelCard = ({ imovel }) => {
+    const {
+        fotoCapa,
+        subtipo,
+        exibirSubtipo,
+        suites,
+        areaExibida,
+        baixouPreco,
+        percentualDesconto,
+    } = obterMetricasCard(imovel);
+
+    const textoBadgeDesconto = percentualDesconto > 0 ? `-${percentualDesconto}%` : 'Baixou';
+    const tituloQuartos = suites > 0 ? `${imovel.quartos} quartos (${suites} suíte)` : 'Quartos';
+    const labelQuartos = obterLabelQuartos(suites);
+    const labelModalidadePreco = imovel.modalidade === 'ALUGUEL' ? 'Aluguel' : 'Valor de Venda';
 
     return (
         <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col h-full group">
@@ -43,7 +79,7 @@ const ImovelCard = ({ imovel }) => {
                     loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     onError={(e) => {
-                        e.target.src = 'https://placehold.co/600x400.png?text=Sem+Foto';
+                        e.target.src = FOTO_FALLBACK;
                     }}
                 />
                 <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
@@ -64,7 +100,7 @@ const ImovelCard = ({ imovel }) => {
                     {baixouPreco && (
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 text-white shadow-sm">
                             <TrendingDown size={12} />
-                            {percentualDesconto > 0 ? `-${percentualDesconto}%` : 'Baixou'}
+                            {textoBadgeDesconto}
                         </span>
                     )}
                     {imovel.ativo === false && (
@@ -95,23 +131,19 @@ const ImovelCard = ({ imovel }) => {
                 </h3>
                 <p className="text-gray-500 text-xs mb-4 flex items-center gap-1.5 truncate">
                     <MapPin size={14} className="text-blue-600 shrink-0" />
-                    <span className="truncate">
-                        {imovel.bairro && imovel.bairro !== 'Não Informado'
-                            ? `${imovel.bairro}, ${imovel.cidade}`
-                            : imovel.cidade}
-                    </span>
+                    <span className="truncate">{obterEnderecoCurto(imovel)}</span>
                 </p>
 
                 <div className="grid grid-cols-4 gap-1.5 mb-4 text-xs text-gray-600">
                     <div
                         className="flex flex-col items-center justify-center bg-gray-50 py-2 px-1 rounded-xl border border-gray-100"
-                        title={suites > 0 ? `${imovel.quartos} quartos (${suites} suíte)` : 'Quartos'}
+                        title={tituloQuartos}
                     >
                         <span className="font-bold text-gray-900 flex items-center gap-1">
                             <BedDouble size={13} className="text-blue-600" /> {imovel.quartos}
                         </span>
                         <span className="text-[10px] text-gray-400 font-medium truncate">
-                            {suites > 0 ? `${suites} suíte${suites > 1 ? 's' : ''}` : 'Quartos'}
+                            {labelQuartos}
                         </span>
                     </div>
 
@@ -141,7 +173,7 @@ const ImovelCard = ({ imovel }) => {
                 <div className="mt-auto pt-3.5 border-t border-gray-100 flex justify-between items-end gap-2">
                     <div>
                         <p className="text-[10px] text-gray-400 mb-0.5 font-bold uppercase tracking-wider">
-                            {imovel.modalidade === 'ALUGUEL' ? 'Aluguel' : 'Valor de Venda'}
+                            {labelModalidadePreco}
                         </p>
                         {baixouPreco && (
                             <p className="text-xs text-gray-400 line-through leading-none mb-0.5">

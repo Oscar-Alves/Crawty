@@ -40,6 +40,26 @@ export const FILTROS_INICIAIS = {
     ordenar_por: '',
 };
 
+let memoriaFiltros = { ...FILTROS_INICIAIS };
+let memoriaPagina = 1;
+
+export const obterFiltrosSalvos = () => ({ ...FILTROS_INICIAIS, ...memoriaFiltros });
+
+export const salvarFiltrosSalvos = (novosFiltros) => {
+    const mesclado = { ...FILTROS_INICIAIS, ...novosFiltros };
+    if (mesclado.ordenar_por === 'recentes') {
+        mesclado.ordenar_por = 'recente';
+    }
+    memoriaFiltros = mesclado;
+};
+
+export const obterPaginaSalva = () => memoriaPagina;
+
+export const salvarPaginaSalva = (pagina) => {
+    const num = Number.parseInt(String(pagina), 10);
+    memoriaPagina = Number.isNaN(num) || num < 1 ? 1 : num;
+};
+
 const FAIXAS_PRECO_VENDA = [
     { label: 'Até 250 mil', min: '', max: '250000' },
     { label: '250 a 500 mil', min: '250000', max: '500000' },
@@ -81,7 +101,6 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
         setFiltros((prev) => {
             const novo = { ...prev, [campo]: valor };
 
-            // Se mudou a cidade, verifica se o bairro atual pertence à nova cidade
             if (campo === 'cidade') {
                 const bairrosDaNovaCidade = valor
                     ? opcoes.bairros_por_cidade?.[valor] || []
@@ -91,7 +110,6 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                 }
             }
 
-            // Se mudou o tipo, verifica se o subtipo atual pertence ao novo tipo
             if (campo === 'tipo') {
                 const subtiposDoNovoTipo = valor
                     ? opcoes.subtipos_por_tipo?.[valor] || []
@@ -140,10 +158,10 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
         const valorAtual = String(filtros[campo] || '');
         return (
             <div>
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
                     {icone}
                     {label}
-                </label>
+                </span>
                 <div className="grid grid-cols-5 gap-1.5">
                     <button
                         type="button"
@@ -255,12 +273,13 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
 
             {/* 2. Busca por Código, Rua ou Palavra-chave */}
             <div>
-                <label className={sectionTitleClass}>
+                <label htmlFor="filtro-busca" className={sectionTitleClass}>
                     <Search size={14} className="text-blue-600" />
                     Busca Rápida ou Código
                 </label>
                 <div className="relative">
                     <input
+                        id="filtro-busca"
                         type="text"
                         name="busca"
                         value={filtros.busca}
@@ -288,8 +307,11 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                 </span>
 
                 <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Cidade</label>
+                    <label htmlFor="filtro-cidade" className="block text-xs font-medium text-gray-600 mb-1">
+                        Cidade
+                    </label>
                     <select
+                        id="filtro-cidade"
                         name="cidade"
                         value={filtros.cidade}
                         onChange={handleInputChange}
@@ -306,7 +328,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
 
                 <div>
                     <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-medium text-gray-600">
+                        <label htmlFor="filtro-bairro" className="block text-xs font-medium text-gray-600">
                             Bairro / Loteamento
                         </label>
                         <span className="text-[11px] text-gray-400">
@@ -318,6 +340,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                     <div className="relative mb-1.5">
                         <input
                             type="text"
+                            aria-label="Filtrar nome do bairro"
                             value={buscaBairro}
                             onChange={(e) => setBuscaBairro(e.target.value)}
                             placeholder="Filtrar nome do bairro..."
@@ -335,6 +358,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                     </div>
 
                     <select
+                        id="filtro-bairro"
                         name="bairro"
                         value={filtros.bairro}
                         onChange={handleInputChange}
@@ -394,10 +418,11 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
 
                 {subtiposDisponiveis.length > 0 && (
                     <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                        <label htmlFor="filtro-subtipo" className="block text-xs font-medium text-gray-600 mb-1">
                             Subtipo / Categoria Específica
                         </label>
                         <select
+                            id="filtro-subtipo"
                             name="subtipo"
                             value={filtros.subtipo}
                             onChange={handleInputChange}
@@ -427,10 +452,11 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
 
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                        <label htmlFor="filtro-preco-min" className="block text-[11px] font-medium text-gray-500 mb-1">
                             Mínimo (R$)
                         </label>
                         <input
+                            id="filtro-preco-min"
                             type="number"
                             name="preco_min"
                             min="0"
@@ -442,10 +468,11 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                         />
                     </div>
                     <div>
-                        <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                        <label htmlFor="filtro-preco-max" className="block text-[11px] font-medium text-gray-500 mb-1">
                             Máximo (R$)
                         </label>
                         <input
+                            id="filtro-preco-max"
                             type="number"
                             name="preco_max"
                             min="0"
@@ -460,13 +487,13 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
 
                 {/* Sugestões rápidas de preço */}
                 <div className="flex flex-wrap gap-1.5">
-                    {faixasSugeridas.map((f, idx) => {
+                    {faixasSugeridas.map((f) => {
                         const selecionada =
                             String(filtros.preco_min) === f.min &&
                             String(filtros.preco_max) === f.max;
                         return (
                             <button
-                                key={idx}
+                                key={f.label}
                                 type="button"
                                 onClick={() => aplicarFaixaPreco(f.min, f.max)}
                                 className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
@@ -523,10 +550,11 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                 </span>
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                        <label htmlFor="filtro-area-min" className="block text-[11px] font-medium text-gray-500 mb-1">
                             Mínima (m²)
                         </label>
                         <input
+                            id="filtro-area-min"
                             type="number"
                             name="area_min"
                             min="0"
@@ -537,10 +565,11 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                         />
                     </div>
                     <div>
-                        <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                        <label htmlFor="filtro-area-max" className="block text-[11px] font-medium text-gray-500 mb-1">
                             Máxima (m²)
                         </label>
                         <input
+                            id="filtro-area-max"
                             type="number"
                             name="area_max"
                             min="0"
@@ -561,10 +590,11 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                 </span>
 
                 <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                    <label htmlFor="filtro-imobiliaria" className="block text-xs font-medium text-gray-600 mb-1">
                         Imobiliária
                     </label>
                     <select
+                        id="filtro-imobiliaria"
                         name="imobiliaria"
                         value={filtros.imobiliaria}
                         onChange={handleInputChange}
@@ -582,11 +612,12 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                 </div>
 
                 <div>
-                    <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 mb-1">
+                    <label htmlFor="filtro-status" className="flex items-center gap-1.5 text-xs font-medium text-gray-600 mb-1">
                         <Database size={13} className="text-gray-400" />
                         Disponibilidade do Anúncio
                     </label>
                     <select
+                        id="filtro-status"
                         name="status"
                         value={filtros.status || 'ativos'}
                         onChange={handleInputChange}
@@ -598,12 +629,13 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                     </select>
                 </div>
 
-                <label className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100/80 rounded-xl border border-gray-200 cursor-pointer transition-colors">
+                <label htmlFor="filtro-apenas-com-foto" className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100/80 rounded-xl border border-gray-200 cursor-pointer transition-colors">
                     <span className="flex items-center gap-2 text-xs font-semibold text-gray-700">
                         <Camera size={15} className="text-blue-600" />
                         Apenas imóveis com fotos
                     </span>
                     <input
+                        id="filtro-apenas-com-foto"
                         type="checkbox"
                         name="apenas_com_foto"
                         checked={Boolean(filtros.apenas_com_foto)}
@@ -612,12 +644,13 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                     />
                 </label>
 
-                <label className="flex items-center justify-between p-3 bg-rose-50/60 hover:bg-rose-50 rounded-xl border border-rose-200/70 cursor-pointer transition-colors">
+                <label htmlFor="filtro-apenas-queda-preco" className="flex items-center justify-between p-3 bg-rose-50/60 hover:bg-rose-50 rounded-xl border border-rose-200/70 cursor-pointer transition-colors">
                     <span className="flex items-center gap-2 text-xs font-semibold text-rose-800">
                         <TrendingDown size={15} className="text-rose-600" />
                         Apenas com redução de preço
                     </span>
                     <input
+                        id="filtro-apenas-queda-preco"
                         type="checkbox"
                         name="apenas_queda_preco"
                         checked={Boolean(filtros.apenas_queda_preco)}
@@ -641,8 +674,10 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
             {/* Drawer Mobile */}
             {abertoMobile && (
                 <div className="fixed inset-0 z-50 lg:hidden flex">
-                    <div
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+                    <button
+                        type="button"
+                        aria-label="Fechar painel de filtros"
+                        className="fixed inset-0 w-full h-full bg-black/50 backdrop-blur-sm transition-opacity border-0 cursor-default"
                         onClick={() => setAbertoMobile(false)}
                     />
                     <div className="relative ml-auto w-full max-w-sm bg-white h-full shadow-2xl flex flex-col z-10">
