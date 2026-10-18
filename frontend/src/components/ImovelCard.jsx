@@ -1,4 +1,4 @@
-import { MapPin, BedDouble, Bath, Car, Ruler, Sparkles } from 'lucide-react';
+import { MapPin, BedDouble, Bath, Car, Ruler, TrendingDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ImovelCard = ({ imovel }) => {
@@ -24,6 +24,15 @@ const ImovelCard = ({ imovel }) => {
 
     const suites = imovel.extras?.suites || 0;
     const areaExibida = imovel.area_util || imovel.area_total || 0;
+
+    const baixouPreco =
+        imovel.preco_anterior &&
+        imovel.preco > 0 &&
+        imovel.preco_anterior > imovel.preco;
+
+    const percentualDesconto = baixouPreco
+        ? Math.round(((imovel.preco_anterior - imovel.preco) / imovel.preco_anterior) * 100)
+        : 0;
 
     return (
         <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col h-full group">
@@ -51,13 +60,19 @@ const ImovelCard = ({ imovel }) => {
                     </span>
                 </div>
 
-                {imovel.ativo === false && (
-                    <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+                    {baixouPreco && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 text-white shadow-sm">
+                            <TrendingDown size={12} />
+                            {percentualDesconto > 0 ? `-${percentualDesconto}%` : 'Baixou'}
+                        </span>
+                    )}
+                    {imovel.ativo === false && (
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
                             Inativo
                         </span>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-8 flex items-end justify-between gap-2">
                     <p className="text-white text-xs font-semibold truncate uppercase tracking-wider">
@@ -128,6 +143,11 @@ const ImovelCard = ({ imovel }) => {
                         <p className="text-[10px] text-gray-400 mb-0.5 font-bold uppercase tracking-wider">
                             {imovel.modalidade === 'ALUGUEL' ? 'Aluguel' : 'Valor de Venda'}
                         </p>
+                        {baixouPreco && (
+                            <p className="text-xs text-gray-400 line-through leading-none mb-0.5">
+                                {formatMoney(imovel.preco_anterior)}
+                            </p>
+                        )}
                         <p className="text-lg font-extrabold text-blue-600 leading-none">
                             {formatMoney(imovel.preco)}
                         </p>

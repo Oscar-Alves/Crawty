@@ -15,6 +15,7 @@ import {
     Camera,
     Database,
     Home as HomeIcon,
+    TrendingDown,
 } from 'lucide-react';
 
 export const FILTROS_INICIAIS = {
@@ -34,6 +35,7 @@ export const FILTROS_INICIAIS = {
     banheiros_min: '',
     vagas_min: '',
     apenas_com_foto: false,
+    apenas_queda_preco: false,
     status: 'ativos',
     ordenar_por: '',
 };
@@ -607,6 +609,20 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                         checked={Boolean(filtros.apenas_com_foto)}
                         onChange={handleInputChange}
                         className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                </label>
+
+                <label className="flex items-center justify-between p-3 bg-rose-50/60 hover:bg-rose-50 rounded-xl border border-rose-200/70 cursor-pointer transition-colors">
+                    <span className="flex items-center gap-2 text-xs font-semibold text-rose-800">
+                        <TrendingDown size={15} className="text-rose-600" />
+                        Apenas com redução de preço
+                    </span>
+                    <input
+                        type="checkbox"
+                        name="apenas_queda_preco"
+                        checked={Boolean(filtros.apenas_queda_preco)}
+                        onChange={handleInputChange}
+                        className="w-4 h-4 text-rose-600 rounded border-gray-300 focus:ring-rose-500"
                     />
                 </label>
             </div>

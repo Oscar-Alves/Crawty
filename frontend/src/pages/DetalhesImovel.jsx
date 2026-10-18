@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getImovelDetalhes } from '../services/api';
+import { getImovelDetalhes, registrarCliqueLead } from '../services/api';
 import {
     MapPin,
     BedDouble,
@@ -12,6 +12,8 @@ import {
     Calendar,
     Sparkles,
     Check,
+    TrendingDown,
+    History,
 } from 'lucide-react';
 
 const DetalhesImovel = () => {
@@ -37,6 +39,20 @@ const DetalhesImovel = () => {
         }
     };
 
+    const formatarMoeda = (valor) => {
+        if (!valor || valor <= 0) return 'Sob Consulta';
+        return Number(valor).toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+        });
+    };
+
+    const construirLinkRastreado = (urlOriginal) => {
+        if (!urlOriginal) return '#';
+        const separador = urlOriginal.includes('?') ? '&' : '?';
+        return `${urlOriginal}${separador}utm_source=hubimoveis&utm_medium=portal`;
+    };
+
     if (loading)
         return (
             <div className="h-screen flex items-center justify-center">
@@ -50,6 +66,11 @@ const DetalhesImovel = () => {
     const subtipo = imovel.extras?.subtipo;
     const suites = imovel.extras?.suites || 0;
     const salas = imovel.extras?.salas || 0;
+    const historicoPrecos = Array.isArray(imovel.historico_precos) ? imovel.historico_precos : [];
+    const baixouPreco =
+        imovel.preco_anterior &&
+        imovel.preco > 0 &&
+        imovel.preco_anterior > imovel.preco;
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
@@ -108,6 +129,11 @@ const DetalhesImovel = () => {
                                     {subtipo && subtipo !== 'Padrão' && subtipo !== imovel.tipo && (
                                         <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold">
                                             {subtipo}
+                                        </span>
+                                    )}
+                                    {baixouPreco && (
+                                        <span className="flex items-center gap-1 bg-rose-50 text-rose-700 px-3 py-1 rounded-full text-xs font-bold border border-rose-200">
+                                            <TrendingDown size={13} /> Redução de Preço
                                         </span>
                                     )}
                                     {imovel.ativo === false && (
@@ -214,12 +240,47 @@ const DetalhesImovel = () => {
                             )}
                         </div>
 
-                        {imovel.last_updated && (
-                            <div className="text-xs text-gray-400 flex items-center gap-1.5 mt-8">
-                                <Calendar size={13} /> Atualizado em:{' '}
-                                {new Date(imovel.last_updated).toLocaleDateString('pt-BR')}
+                        {/* Histórico de Preços (quando houver mais de 1 registro ou variação) */}
+                        {historicoPrecos.length > 1 && (
+                            <div className="mt-6 pt-6 border-t border-gray-100">
+                                <h3 className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-3">
+                                    <History size={16} className="text-blue-600" />
+                                    Histórico de Preços Capturados
+                                </h3>
+                                <div className="space-y-2">
+                                    {historicoPrecos.map((reg, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="flex items-center justify-between text-xs bg-gray-50 px-3 py-2 rounded-lg border border-gray-100"
+                                        >
+                                            <span className="text-gray-500">
+                                                {reg.data
+                                                    ? new Date(reg.data).toLocaleDateString('pt-BR')
+                                                    : '-'}
+                                            </span>
+                                            <span className="font-bold text-gray-800">
+                                                {formatarMoeda(reg.preco)}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
+
+                        <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 mt-8">
+                            {imovel.criado_em && (
+                                <span className="flex items-center gap-1.5">
+                                    <Calendar size={13} /> Capturado desde:{' '}
+                                    {new Date(imovel.criado_em).toLocaleDateString('pt-BR')}
+                                </span>
+                            )}
+                            {imovel.last_updated && (
+                                <span className="flex items-center gap-1.5">
+                                    <Calendar size={13} /> Última verificação:{' '}
+                                    {new Date(imovel.last_updated).toLocaleDateString('pt-BR')}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -230,13 +291,13 @@ const DetalhesImovel = () => {
                             <p className="text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">
                                 Valor de {imovel.modalidade}
                             </p>
+                            {baixouPreco && (
+                                <p className="text-sm text-gray-400 line-through font-medium">
+                                    De {formatarMoeda(imovel.preco_anterior)}
+                                </p>
+                            )}
                             <p className="text-3xl md:text-4xl font-extrabold text-blue-600 mb-6 tracking-tight">
-                                {imovel.preco
-                                    ? imovel.preco.toLocaleString('pt-BR', {
-                                          style: 'currency',
-                                          currency: 'BRL',
-                                      })
-                                    : 'Sob Consulta'}
+                                {formatarMoeda(imovel.preco)}
                             </p>
 
                             {imovel.ativo === false ? (
@@ -245,9 +306,10 @@ const DetalhesImovel = () => {
                                 </div>
                             ) : (
                                 <a
-                                    href={imovel.link}
+                                    href={construirLinkRastreado(imovel.link)}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    onClick={() => registrarCliqueLead(imovel.id_unico, 'detalhes')}
                                     className="block w-full bg-emerald-600 hover:bg-emerald-700 text-white text-center font-bold py-4 rounded-xl transition-all shadow-md hover:shadow-lg mb-3"
                                 >
                                     Ver no site da {imovel.imobiliaria}

@@ -101,7 +101,12 @@ const Home = () => {
     const removerFiltroIndividual = (chave) => {
         handleFiltrosChange((prev) => ({
             ...prev,
-            [chave]: chave === 'status' ? 'ativos' : chave === 'apenas_com_foto' ? false : '',
+            [chave]:
+                chave === 'status'
+                    ? 'ativos'
+                    : chave === 'apenas_com_foto' || chave === 'apenas_queda_preco'
+                    ? false
+                    : '',
         }));
     };
 
@@ -151,6 +156,8 @@ const Home = () => {
             chips.push({ key: 'area_max', label: `Área máx ${filtros.area_max} m²` });
         if (filtros.apenas_com_foto)
             chips.push({ key: 'apenas_com_foto', label: 'Com fotos' });
+        if (filtros.apenas_queda_preco)
+            chips.push({ key: 'apenas_queda_preco', label: 'Redução de preço' });
         if (filtros.status && filtros.status !== 'ativos') {
             chips.push({
                 key: 'status',

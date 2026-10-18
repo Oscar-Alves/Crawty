@@ -41,3 +41,16 @@ export const getImovelDetalhes = async (id) => {
     if (!response.ok) throw new Error("Imóvel não encontrado");
     return await response.json();
 };
+
+export const registrarCliqueLead = (idUnico, origem = "detalhes") => {
+    try {
+        fetch(`${API_URL}/leads/clique`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id_unico: idUnico, origem }),
+            keepalive: true,
+        }).catch(() => {});
+    } catch {
+        // Silencioso para nunca bloquear o redirecionamento do usuário
+    }
+};

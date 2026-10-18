@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Any
 from datetime import datetime
 
+
 class ExtrasImovel(BaseModel):
     atributos: Optional[str] = None
     subtipo: Optional[str] = None
@@ -9,6 +10,12 @@ class ExtrasImovel(BaseModel):
     numero: Optional[Any] = None
     suites: Optional[int] = 0
     salas: Optional[int] = 0
+
+
+class RegistroPreco(BaseModel):
+    preco: float
+    data: datetime
+
 
 class Imovel(BaseModel):
     id_unico: str = Field(..., description="ID composto: Imobiliaria_Codigo")
@@ -18,6 +25,8 @@ class Imovel(BaseModel):
     modalidade: str
     tipo: Optional[str] = "Indefinido"
     preco: float
+    preco_anterior: Optional[float] = None
+    historico_precos: Optional[List[RegistroPreco]] = []
     bairro: Optional[str] = "Não Informado"
     cidade: Optional[str] = "São João del Rei"
     quartos: int = 0
@@ -28,9 +37,16 @@ class Imovel(BaseModel):
     link: str
     fotos: List[str] = []
     extras: Optional[ExtrasImovel] = {}
+    criado_em: Optional[datetime] = None
     last_updated: Optional[datetime] = None
     ativo: bool = True
     descontinuado_em: Optional[datetime] = None
+    cliques: Optional[int] = 0
 
     class Config:
         populate_by_name = True
+
+
+class CliqueLeadRequest(BaseModel):
+    id_unico: str
+    origem: Optional[str] = "detalhes"

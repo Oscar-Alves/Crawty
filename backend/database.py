@@ -10,23 +10,24 @@ load_dotenv(dotenv_path=env_path)
 MONGO_URL = os.getenv("MONGODB_URL")
 DB_NAME = os.getenv("DB_NAME", "imobiliaria_db")
 
-# Debug simples para confirmar se carregou (opcional, pode remover depois)
 if not MONGO_URL:
     print(f"ERRO CRÍTICO: Não foi possível encontrar o .env no caminho: {env_path}")
     print("Verifique se o arquivo .env existe e contém a variável MONGODB_URL.")
     client = None
     db = None
     imoveis_collection = None
+    cliques_collection = None
 else:
     try:
         client = MongoClient(MONGO_URL)
         db = client[DB_NAME]
         imoveis_collection = db["imoveis"]
-        # Teste rápido de conexão (ping)
+        cliques_collection = db["cliques_leads"]
         client.admin.command('ping')
     except Exception as e:
         print(f"Erro ao conectar no MongoDB: {e}")
         imoveis_collection = None
+        cliques_collection = None
 
 def criar_indices():
     if imoveis_collection is not None:
@@ -37,6 +38,9 @@ def criar_indices():
             imoveis_collection.create_index([("ativo", 1), ("preco", 1)])
             imoveis_collection.create_index([("ativo", 1), ("modalidade", 1)])
             imoveis_collection.create_index([("ativo", 1), ("tipo", 1)])
+            if cliques_collection is not None:
+                cliques_collection.create_index([("imobiliaria", 1), ("timestamp", -1)])
+                cliques_collection.create_index([("id_unico", 1), ("timestamp", -1)])
             print("Índices do MongoDB verificados.")
         except Exception as e:
             print(f"Erro ao criar índices: {e}")
