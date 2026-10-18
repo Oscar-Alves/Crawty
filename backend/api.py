@@ -15,7 +15,7 @@ except ImportError:
 
 Error = "Banco não conectado"
 
-app = FastAPI(title="API Imóveis Unificada", version="1.3")
+app = FastAPI(title="API Imóveis Unificada", version="1.4")
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,11 +36,12 @@ def converter_mongo_para_dict(imovel):
 def home():
     return {
         "status": "online",
-        "version": "1.3",
+        "version": "1.4",
         "endpoints": {
             "Listagem": "/imoveis",
             "Opções de Filtro": "/filtros",
             "Detalhe": "/imoveis/{id_unico}",
+            "Estatísticas de Mercado": "/estatisticas",
             "Registrar Clique (Lead)": "/leads/clique",
             "Resumo de Leads B2B": "/leads/resumo",
         },
@@ -408,6 +409,339 @@ def obter_resumo_leads():
         "total_cliques": total_cliques,
         "por_imobiliaria": por_imobiliaria,
         "top_imoveis": top_imoveis,
+    }
+
+
+def _calcular_media(valores):
+    return round(sum(valores) / len(valores), 2) if valores else 0.0
+
+
+def _calcular_mediana(valores):
+    if not valores:
+        return 0.0
+    ordenados = sorted(valores)
+    n = len(ordenados)
+    meio = n // 2
+    if n % 2 == 1:
+        return round(ordenados[meio], 2)
+    return round((ordenados[meio - 1] + ordenados[meio]) / 2.0, 2)
+
+
+@app.get("/estatisticas")
+def obter_estatisticas_mercado(cidade: Optional[str] = None):
+    """
+    Agrega indicadores de inteligência de mercado (estoque ativo vs. absorvido,
+    ticket médio, R$/m² por bairro e tipo, distribuição por faixa de preço e
+    market share por imobiliária).
+    """
+    if imoveis_collection is None:
+        raise HTTPException(status_code=500, detail=Error)
+
+    projecao = {
+        "ativo": 1,
+        "modalidade": 1,
+        "tipo": 1,
+        "preco": 1,
+        "preco_anterior": 1,
+        "area_util": 1,
+        "area_total": 1,
+        "cidade": 1,
+        "bairro": 1,
+        "imobiliaria": 1,
+        "cliques": 1,
+        "_id": 0,
+    }
+
+    todos_docs = list(imoveis_collection.find({}, projecao))
+
+    # Contagem de imóveis ativos por cidade para popular o seletor de cidades do dashboard
+    contagem_cidades = {}
+    for d in todos_docs:
+        if d.get("ativo") is not False:
+            cid = d.get("cidade") or "São João del Rei"
+            contagem_cidades[cid] = contagem_cidades.get(cid, 0) + 1
+
+    cidades_disponiveis = [
+        {"cidade": c, "ativos": qtd}
+        for c, qtd in sorted(contagem_cidades.items(), key=lambda x: (-x[1], x[0]))
+    ]
+
+    # Filtra pela cidade selecionada (se informada)
+    if cidade and cidade.strip():
+        cid_alvo = cidade.strip().lower()
+        docs = [
+            d for d in todos_docs if (d.get("cidade") or "").strip().lower() == cid_alvo
+        ]
+    else:
+        docs = todos_docs
+
+    # Contagem de cliques por imobiliária na coleção de leads
+    cliques_por_imob = {}
+    if cliques_collection is not None:
+        filtro_cliques = (
+            {"cidade": {"$regex": f"^{re.escape(cidade.strip())}$", "$options": "i"}}
+            if cidade and cidade.strip()
+            else {}
+        )
+        for row in cliques_collection.aggregate(
+            [
+                {"$match": filtro_cliques},
+                {"$group": {"_id": "$imobiliaria", "total": {"$sum": 1}}},
+            ]
+        ):
+            if row.get("_id"):
+                cliques_por_imob[row["_id"]] = row.get("total", 0)
+
+    total_ativos = 0
+    total_descontinuados = 0
+    ativos_venda = 0
+    ativos_aluguel = 0
+    total_com_queda = 0
+    total_cliques = sum(cliques_por_imob.values())
+
+    precos_venda = []
+    precos_aluguel = []
+    m2_venda = []
+    m2_aluguel = []
+
+    tipos_agg = {}
+    bairros_agg = {}
+    imob_agg = {}
+
+    faixas_venda = [
+        {"faixa": "Até R$ 250 mil", "min": 0, "max": 250000, "quantidade": 0},
+        {"faixa": "R$ 250 mil a 500 mil", "min": 250000, "max": 500000, "quantidade": 0},
+        {"faixa": "R$ 500 mil a 1 milhão", "min": 500000, "max": 1000000, "quantidade": 0},
+        {"faixa": "Acima de R$ 1 milhão", "min": 1000000, "max": float("inf"), "quantidade": 0},
+    ]
+
+    faixas_aluguel = [
+        {"faixa": "Até R$ 1.200", "min": 0, "max": 1200, "quantidade": 0},
+        {"faixa": "R$ 1.200 a 2.500", "min": 1200, "max": 2500, "quantidade": 0},
+        {"faixa": "R$ 2.500 a 5.000", "min": 2500, "max": 5000, "quantidade": 0},
+        {"faixa": "Acima de R$ 5.000", "min": 5000, "max": float("inf"), "quantidade": 0},
+    ]
+
+    for d in docs:
+        ativo = d.get("ativo") is not False
+        mod = (d.get("modalidade") or "VENDA").upper()
+        tipo = d.get("tipo") or "Casa"
+        bairro = d.get("bairro") or "Não Informado"
+        cid_doc = d.get("cidade") or "São João del Rei"
+        imob = d.get("imobiliaria") or "Não Informada"
+        preco = float(d.get("preco") or 0.0)
+        preco_ant = float(d.get("preco_anterior") or 0.0)
+        area = float(d.get("area_util") or d.get("area_total") or 0.0)
+
+        # Agregação por imobiliária (considera ativos e histórico)
+        im_entry = imob_agg.setdefault(
+            imob,
+            {
+                "imobiliaria": imob,
+                "ativos": 0,
+                "descontinuados": 0,
+                "venda": 0,
+                "aluguel": 0,
+                "precos_venda": [],
+                "precos_aluguel": [],
+                "cliques": cliques_por_imob.get(imob, 0),
+            },
+        )
+
+        # Agregação por bairro
+        chave_bairro = (bairro, cid_doc)
+        if bairro != "Não Informado":
+            b_entry = bairros_agg.setdefault(
+                chave_bairro,
+                {
+                    "bairro": bairro,
+                    "cidade": cid_doc,
+                    "ativos": 0,
+                    "descontinuados": 0,
+                    "venda": 0,
+                    "aluguel": 0,
+                    "precos_venda": [],
+                    "precos_aluguel": [],
+                    "m2_venda": [],
+                    "m2_aluguel": [],
+                },
+            )
+        else:
+            b_entry = None
+
+        if not ativo:
+            total_descontinuados += 1
+            im_entry["descontinuados"] += 1
+            if b_entry:
+                b_entry["descontinuados"] += 1
+            continue
+
+        # A partir daqui: apenas imóveis ATIVOS
+        total_ativos += 1
+        im_entry["ativos"] += 1
+        if b_entry:
+            b_entry["ativos"] += 1
+
+        if preco_ant > 0 and preco > 0 and preco_ant > preco:
+            total_com_queda += 1
+
+        t_entry = tipos_agg.setdefault(
+            tipo,
+            {
+                "tipo": tipo,
+                "ativos": 0,
+                "venda": 0,
+                "aluguel": 0,
+                "precos_venda": [],
+                "precos_aluguel": [],
+                "m2_venda": [],
+            },
+        )
+        t_entry["ativos"] += 1
+
+        if mod == "VENDA":
+            ativos_venda += 1
+            im_entry["venda"] += 1
+            t_entry["venda"] += 1
+            if b_entry:
+                b_entry["venda"] += 1
+
+            # Filtra valores realistas de venda para não distorcer médias com erros de digitação
+            if 15000 <= preco <= 30000000:
+                precos_venda.append(preco)
+                im_entry["precos_venda"].append(preco)
+                t_entry["precos_venda"].append(preco)
+                if b_entry:
+                    b_entry["precos_venda"].append(preco)
+
+                for fx in faixas_venda:
+                    if fx["min"] < preco <= fx["max"] or (fx["min"] == 0 and preco <= fx["max"]):
+                        fx["quantidade"] += 1
+                        break
+
+                if area >= 15:
+                    valor_m2 = preco / area
+                    if 150 <= valor_m2 <= 25000:
+                        m2_venda.append(valor_m2)
+                        t_entry["m2_venda"].append(valor_m2)
+                        if b_entry:
+                            b_entry["m2_venda"].append(valor_m2)
+        else:
+            ativos_aluguel += 1
+            im_entry["aluguel"] += 1
+            t_entry["aluguel"] += 1
+            if b_entry:
+                b_entry["aluguel"] += 1
+
+            if 150 <= preco <= 50000:
+                precos_aluguel.append(preco)
+                im_entry["precos_aluguel"].append(preco)
+                t_entry["precos_aluguel"].append(preco)
+                if b_entry:
+                    b_entry["precos_aluguel"].append(preco)
+
+                for fx in faixas_aluguel:
+                    if fx["min"] < preco <= fx["max"] or (fx["min"] == 0 and preco <= fx["max"]):
+                        fx["quantidade"] += 1
+                        break
+
+                if area >= 12:
+                    valor_m2 = preco / area
+                    if 3 <= valor_m2 <= 150:
+                        m2_aluguel.append(valor_m2)
+                        if b_entry:
+                            b_entry["m2_aluguel"].append(valor_m2)
+
+    # Formata lista por tipo
+    lista_tipos = []
+    for t in sorted(tipos_agg.values(), key=lambda x: -x["ativos"]):
+        lista_tipos.append(
+            {
+                "tipo": t["tipo"],
+                "ativos": t["ativos"],
+                "venda": t["venda"],
+                "aluguel": t["aluguel"],
+                "percentual": round((t["ativos"] / total_ativos) * 100, 1) if total_ativos > 0 else 0.0,
+                "ticket_medio_venda": _calcular_media(t["precos_venda"]),
+                "ticket_medio_aluguel": _calcular_media(t["precos_aluguel"]),
+                "preco_m2_venda": _calcular_media(t["m2_venda"]),
+            }
+        )
+
+    # Formata lista de bairros (top 25 com pelo menos 2 imóveis ativos)
+    lista_bairros = []
+    for b in sorted(bairros_agg.values(), key=lambda x: -x["ativos"]):
+        if b["ativos"] < 2:
+            continue
+        lista_bairros.append(
+            {
+                "bairro": b["bairro"],
+                "cidade": b["cidade"],
+                "ativos": b["ativos"],
+                "descontinuados": b["descontinuados"],
+                "venda": b["venda"],
+                "aluguel": b["aluguel"],
+                "ticket_medio_venda": _calcular_media(b["precos_venda"]),
+                "ticket_medio_aluguel": _calcular_media(b["precos_aluguel"]),
+                "preco_m2_venda": _calcular_media(b["m2_venda"]),
+                "preco_m2_aluguel": _calcular_media(b["m2_aluguel"]),
+            }
+        )
+
+    # Formata lista de imobiliárias (apenas as que possuem anúncios ativos)
+    lista_imobiliarias = []
+    for im in sorted(imob_agg.values(), key=lambda x: -x["ativos"]):
+        if im["ativos"] == 0:
+            continue
+        lista_imobiliarias.append(
+            {
+                "imobiliaria": im["imobiliaria"],
+                "ativos": im["ativos"],
+                "descontinuados": im["descontinuados"],
+                "venda": im["venda"],
+                "aluguel": im["aluguel"],
+                "market_share_pct": round((im["ativos"] / total_ativos) * 100, 1)
+                if total_ativos > 0
+                else 0.0,
+                "ticket_medio_venda": _calcular_media(im["precos_venda"]),
+                "ticket_medio_aluguel": _calcular_media(im["precos_aluguel"]),
+                "cliques": im["cliques"],
+            }
+        )
+
+    total_geral = total_ativos + total_descontinuados
+
+    return {
+        "cidade_selecionada": cidade or "Todas",
+        "cidades_disponiveis": cidades_disponiveis,
+        "resumo_geral": {
+            "total_ativos": total_ativos,
+            "total_descontinuados": total_descontinuados,
+            "total_geral": total_geral,
+            "taxa_absorcao_pct": round((total_descontinuados / total_geral) * 100, 1)
+            if total_geral > 0
+            else 0.0,
+            "ativos_venda": ativos_venda,
+            "ativos_aluguel": ativos_aluguel,
+            "ticket_medio_venda": _calcular_media(precos_venda),
+            "mediana_venda": _calcular_mediana(precos_venda),
+            "ticket_medio_aluguel": _calcular_media(precos_aluguel),
+            "mediana_aluguel": _calcular_mediana(precos_aluguel),
+            "preco_m2_venda": _calcular_media(m2_venda),
+            "preco_m2_aluguel": _calcular_media(m2_aluguel),
+            "total_imobiliarias_ativas": len(lista_imobiliarias),
+            "total_cliques": total_cliques,
+            "total_com_queda_preco": total_com_queda,
+        },
+        "por_tipo": lista_tipos,
+        "por_bairro": lista_bairros[:30],
+        "por_imobiliaria": lista_imobiliarias,
+        "faixas_venda": [
+            {"faixa": f["faixa"], "quantidade": f["quantidade"]} for f in faixas_venda
+        ],
+        "faixas_aluguel": [
+            {"faixa": f["faixa"], "quantidade": f["quantidade"]} for f in faixas_aluguel
+        ],
     }
 
 

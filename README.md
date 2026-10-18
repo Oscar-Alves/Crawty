@@ -75,11 +75,10 @@ Sempre que fizer alterações nos arquivos da pasta `backend/` ou no `requiremen
    ```
 3. Dispare a compilação e deploy direto da raiz do projeto usando o Cloud Build (não requer Docker rodando na sua máquina):
    ```bash
-   gcloud run deploy crawty-api \
-     --source . \
-     --region us-central1 \
-     --allow-unauthenticated \
-     --set-env-vars "MONGODB_URL=mongodb+srv://<USER>:<PASS>@crawfy.tcfndp8.mongodb.net/?retryWrites=true&w=majority&appName=Crawfy,DB_NAME=imobiliaria_db"
+   gcloud run deploy crawty-api
+     --source .
+     --region us-central1
+     --allow-unauthenticated
    ```
 
 *(Opcional com Docker local)*: Caso prefira compilar a imagem localmente com o Docker Desktop aberto:

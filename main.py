@@ -106,7 +106,7 @@ def main():
         (KrasisCrawler, 'Krasis'),
         (JFroesCrawler, 'JFróes'),
         (FocoCrawler, 'Foco'),
-        (BaseGestaoCrawler, 'Base Gestão'),
+        # (BaseGestaoCrawler, 'Base Gestão'),
         (ContinuaCrawler, 'Contínua'),
         # Imobiliárias da região (Barbacena, Barroso, etc.)
         (ResendeCrawler, 'Resende'),

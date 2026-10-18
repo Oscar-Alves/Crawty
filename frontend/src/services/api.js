@@ -54,3 +54,10 @@ export const registrarCliqueLead = (idUnico, origem = "detalhes") => {
         // Silencioso para nunca bloquear o redirecionamento do usuário
     }
 };
+
+export const getEstatisticas = async (cidade = "") => {
+    const query = cidade ? `?cidade=${encodeURIComponent(cidade)}` : "";
+    const response = await fetch(`${API_URL}/estatisticas${query}`);
+    if (!response.ok) throw new Error("Erro ao carregar estatísticas de mercado");
+    return await response.json();
+};
