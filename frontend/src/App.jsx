@@ -3,6 +3,7 @@ import Header from './components/Header';
 import Home from './pages/Home';
 import DetalhesImovel from './pages/DetalhesImovel';
 import Estatisticas from './pages/Estatisticas';
+import ModoMatch from './pages/ModoMatch';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/imovel/:id" element={<DetalhesImovel />} />
+          <Route path="/match" element={<ModoMatch />} />
           <Route path="/estatisticas" element={<Estatisticas />} />
         </Routes>
       </div>

@@ -1,10 +1,10 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-const STATUS_PERMITIDOS = ["ativos", "descontinuados", "todos"];
+const STATUS_PERMITIDOS = new Set(["ativos", "descontinuados", "todos"]);
 
 export const getFiltros = async (status = "ativos") => {
     try {
-        const statusSeguro = STATUS_PERMITIDOS.includes(status) ? status : "ativos";
+        const statusSeguro = STATUS_PERMITIDOS.has(status) ? status : "ativos";
         const query = new URLSearchParams({ status: statusSeguro });
         const response = await fetch(`${API_URL}/filtros?${query.toString()}`);
         if (!response.ok) throw new Error("Erro ao buscar opções de filtro");
@@ -41,7 +41,11 @@ export const getImoveis = async (params) => {
 };
 
 export const getImovelDetalhes = async (id) => {
-    const response = await fetch(`${API_URL}/imoveis/${id}`);
+    const idTexto = String(id || "").trim();
+    if (!/^[\w-]+$/.test(idTexto)) {
+        throw new Error("Identificador de imóvel inválido");
+    }
+    const response = await fetch(`${API_URL}/imoveis/${encodeURIComponent(idTexto)}`);
     if (!response.ok) throw new Error("Imóvel não encontrado");
     return await response.json();
 };

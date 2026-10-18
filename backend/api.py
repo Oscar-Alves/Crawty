@@ -15,6 +15,7 @@ except ImportError:
     from backend.models import Imovel, CliqueLeadRequest
 
 ERROR_DB = "Banco não conectado"
+ERRO_IMOVEL_NAO_ENCONTRADO = "Imóvel não encontrado"
 BAIRRO_NAO_INFORMADO = "Não Informado"
 CIDADE_PADRAO = "São João del Rei"
 SUBTIPO_PADRAO = "Padrão"
@@ -24,7 +25,7 @@ MONGO_EXISTS = "$exists"
 
 RESPONSES_500 = {500: {"description": "Erro interno no servidor ou banco desconectado"}}
 RESPONSES_404_500 = {
-    404: {"description": "Imóvel não encontrado"},
+    404: {"description": ERRO_IMOVEL_NAO_ENCONTRADO},
     500: {"description": "Erro interno no servidor ou banco desconectado"},
 }
 
@@ -106,7 +107,7 @@ def home():
 
 @app.get("/filtros", responses=RESPONSES_500)
 def obter_opcoes_filtro(
-    status: str = Query("ativos", pattern="^(ativos|descontinuados|todos)$")
+    status: Annotated[str, Query(pattern="^(ativos|descontinuados|todos)$")] = "ativos",
 ):
     if imoveis_collection is None:
         raise HTTPException(status_code=500, detail=ERROR_DB)
@@ -348,7 +349,7 @@ def obter_detalhe_imovel(id_unico: str):
     imovel = imoveis_collection.find_one({"id_unico": id_unico})
     if imovel:
         return converter_mongo_para_dict(imovel)
-    raise HTTPException(status_code=404, detail="Imóvel não encontrado")
+    raise HTTPException(status_code=404, detail=ERRO_IMOVEL_NAO_ENCONTRADO)
 
 
 @app.post("/leads/clique", responses=RESPONSES_404_500)
@@ -376,7 +377,7 @@ def registrar_clique_lead(req: CliqueLeadRequest):
         },
     )
     if not imovel:
-        raise HTTPException(status_code=404, detail="Imóvel não encontrado")
+        raise HTTPException(status_code=404, detail=ERRO_IMOVEL_NAO_ENCONTRADO)
 
     agora = datetime.now(timezone.utc)
     imoveis_collection.update_one(
@@ -577,21 +578,13 @@ def _registrar_metricas_aluguel(
                 b_entry["m2_aluguel"].append(valor_m2)
 
 
-def _processar_documento_estatistica(
-    d: Dict[str, Any],
+def _obter_ou_criar_entradas_agregacao(
+    imob: str,
+    bairro: str,
+    cid_doc: str,
     cliques_por_imob: Dict[str, int],
     estado: Dict[str, Any],
-) -> None:
-    ativo = d.get("ativo") is not False
-    mod = (d.get("modalidade") or "VENDA").upper()
-    tipo = d.get("tipo") or "Casa"
-    bairro = d.get("bairro") or BAIRRO_NAO_INFORMADO
-    cid_doc = d.get("cidade") or CIDADE_PADRAO
-    imob = d.get("imobiliaria") or "Não Informada"
-    preco = float(d.get("preco") or 0.0)
-    preco_ant = float(d.get("preco_anterior") or 0.0)
-    area = float(d.get("area_util") or d.get("area_total") or 0.0)
-
+):
     im_entry = estado["imob_agg"].setdefault(
         imob,
         {
@@ -623,6 +616,27 @@ def _processar_documento_estatistica(
                 "m2_aluguel": [],
             },
         )
+    return im_entry, b_entry
+
+
+def _processar_documento_estatistica(
+    d: Dict[str, Any],
+    cliques_por_imob: Dict[str, int],
+    estado: Dict[str, Any],
+) -> None:
+    ativo = d.get("ativo") is not False
+    mod = (d.get("modalidade") or "VENDA").upper()
+    tipo = d.get("tipo") or "Casa"
+    bairro = d.get("bairro") or BAIRRO_NAO_INFORMADO
+    cid_doc = d.get("cidade") or CIDADE_PADRAO
+    imob = d.get("imobiliaria") or "Não Informada"
+    preco = float(d.get("preco") or 0.0)
+    preco_ant = float(d.get("preco_anterior") or 0.0)
+    area = float(d.get("area_util") or d.get("area_total") or 0.0)
+
+    im_entry, b_entry = _obter_ou_criar_entradas_agregacao(
+        imob, bairro, cid_doc, cliques_por_imob, estado
+    )
 
     if not ativo:
         estado["total_descontinuados"] += 1

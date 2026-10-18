@@ -455,6 +455,19 @@ def menu_interativo(arquivos):
     return _expandir_indices_escolha(escolha, arquivos)
 
 
+def _resolver_lista_argumentos(args, arquivos_disponiveis):
+    selecionados = []
+    for arg in args:
+        resolvidos = resolver_argumento(arg, arquivos_disponiveis)
+        if not resolvidos:
+            print(f"Aviso: Nenhum arquivo correspondente a '{arg}' foi encontrado.")
+            continue
+        for r in resolvidos:
+            if r not in selecionados:
+                selecionados.append(r)
+    return selecionados
+
+
 def _processar_argumentos_cli(args, arquivos_disponiveis):
     if '--desativar' in args or '-d' in args:
         flag = '--desativar' if '--desativar' in args else '-d'
@@ -474,16 +487,7 @@ def _processar_argumentos_cli(args, arquivos_disponiveis):
     if any(a in {'--todos', '-t', '--all', '-a'} for a in args):
         return arquivos_disponiveis
 
-    selecionados = []
-    for arg in args:
-        resolvidos = resolver_argumento(arg, arquivos_disponiveis)
-        if not resolvidos:
-            print(f"Aviso: Nenhum arquivo correspondente a '{arg}' foi encontrado.")
-            continue
-        for r in resolvidos:
-            if r not in selecionados:
-                selecionados.append(r)
-    return selecionados
+    return _resolver_lista_argumentos(args, arquivos_disponiveis)
 
 
 def main():

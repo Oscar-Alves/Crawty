@@ -1,10 +1,28 @@
-import { Home, BarChart3, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Home, BarChart3, Search, Flame } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { lerIdsMatchesCookie } from '../utils/cookiesMatch';
 
 const Header = () => {
     const location = useLocation();
     const isEstatisticas = location.pathname.startsWith('/estatisticas');
+    const isMatch = location.pathname.startsWith('/match');
     const isBusca = location.pathname === '/' || location.pathname.startsWith('/imovel');
+    const [totalMatches, setTotalMatches] = useState(() => lerIdsMatchesCookie().length);
+
+    useEffect(() => {
+        const aoAtualizarMatches = (evento) => {
+            const lista = evento?.detail;
+            if (Array.isArray(lista)) {
+                setTotalMatches(lista.length);
+            } else {
+                setTotalMatches(lerIdsMatchesCookie().length);
+            }
+        };
+
+        globalThis.addEventListener('crawty-matches-updated', aoAtualizarMatches);
+        return () => globalThis.removeEventListener('crawty-matches-updated', aoAtualizarMatches);
+    }, []);
 
     return (
         <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-95">
@@ -28,7 +46,31 @@ const Header = () => {
                         }`}
                     >
                         <Search size={15} />
-                        <span>Buscar Imóveis</span>
+                        <span className="hidden sm:inline">Buscar Imóveis</span>
+                        <span className="sm:hidden">Buscar</span>
+                    </Link>
+
+                    <Link
+                        to="/match"
+                        className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                            isMatch
+                                ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-sm'
+                                : 'text-rose-600 hover:bg-rose-50 border border-rose-200/70'
+                        }`}
+                    >
+                        <Flame size={15} />
+                        <span>Modo Match</span>
+                        {totalMatches > 0 && (
+                            <span
+                                className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                                    isMatch
+                                        ? 'bg-white/25 text-white'
+                                        : 'bg-rose-100 text-rose-700'
+                                }`}
+                            >
+                                {totalMatches}
+                            </span>
+                        )}
                     </Link>
 
                     <Link
@@ -40,16 +82,8 @@ const Header = () => {
                         }`}
                     >
                         <BarChart3 size={15} />
-                        <span>Mercado & Dados</span>
-                        <span
-                            className={`hidden sm:inline-block text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-md ${
-                                isEstatisticas
-                                    ? 'bg-white/20 text-white'
-                                    : 'bg-blue-100 text-blue-700'
-                            }`}
-                        >
-                            Novo
-                        </span>
+                        <span className="hidden md:inline">Mercado & Dados</span>
+                        <span className="md:hidden">Dados</span>
                     </Link>
                 </nav>
             </div>

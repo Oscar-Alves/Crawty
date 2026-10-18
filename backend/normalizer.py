@@ -523,7 +523,13 @@ def _classificar_comercial(tk: str, subtipo_str: Optional[str]) -> Tuple[str, Op
     return "Comercial", subtipo_str
 
 
-def _classificar_por_tipo_direto(
+def _obter_subtipo_padrao_ou(subtipo_str: Optional[str], substituto: str) -> str:
+    if not subtipo_str or subtipo_str == SUBTIPO_PADRAO:
+        return substituto
+    return subtipo_str
+
+
+def _classificar_por_subtipo_prioritario(
     tk: str, sk: str, subtipo_str: Optional[str]
 ) -> Optional[Tuple[str, Optional[str]]]:
     if sk == "kitnet" or tk == "kitnet":
@@ -531,15 +537,25 @@ def _classificar_por_tipo_direto(
     if sk in SUBTIPOS_RURAIS_MAP:
         return "Rural", SUBTIPOS_RURAIS_MAP[sk]
     if sk in {"lote", "lote de condominio", "terreno"}:
-        return "Terreno", subtipo_str or ("Lote" if tk == "lote" else "Terreno")
+        padrao_terreno = "Lote" if tk == "lote" else "Terreno"
+        return "Terreno", subtipo_str or padrao_terreno
+    return None
+
+
+def _classificar_por_tipo_direto(
+    tk: str, sk: str, subtipo_str: Optional[str]
+) -> Optional[Tuple[str, Optional[str]]]:
+    por_subtipo = _classificar_por_subtipo_prioritario(tk, sk, subtipo_str)
+    if por_subtipo is not None:
+        return por_subtipo
     if tk in {"casa", "chale"}:
-        sub = "Chalé" if tk == "chale" and (not subtipo_str or subtipo_str == SUBTIPO_PADRAO) else subtipo_str
+        sub = _obter_subtipo_padrao_ou(subtipo_str, "Chalé") if tk == "chale" else subtipo_str
         return "Casa", sub
     if tk == "apartamento":
         sub = SUBTIPO_PADRAO if subtipo_str == "Apartamento" else subtipo_str
         return "Apartamento", sub
     if tk in {"lote", "terreno", "terrenos sitios e fazendas"}:
-        sub = "Lote" if tk == "lote" and (not subtipo_str or subtipo_str == SUBTIPO_PADRAO) else (subtipo_str or "Terreno")
+        sub = _obter_subtipo_padrao_ou(subtipo_str, "Lote") if tk == "lote" else (subtipo_str or "Terreno")
         return "Terreno", sub
     if tk in TIPOS_COMERCIAIS_KEYS:
         return _classificar_comercial(tk, subtipo_str)

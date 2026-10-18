@@ -19,10 +19,10 @@ import { getImoveis, getFiltros } from '../services/api';
 
 const SKELETON_IDS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6', 'sk-7', 'sk-8', 'sk-9'];
 
-const obterValorPadraoCampo = (chave) => {
-    if (chave === 'status') return 'ativos';
-    if (chave === 'apenas_com_foto' || chave === 'apenas_queda_preco') return false;
-    return '';
+const VALORES_PADRAO_CAMPO = {
+    status: 'ativos',
+    apenas_com_foto: false,
+    apenas_queda_preco: false,
 };
 
 const obterSufixoModalidadeTitulo = (modalidade) => {
@@ -226,7 +226,7 @@ const Home = () => {
     const removerFiltroIndividual = (chave) => {
         handleFiltrosChange((prev) => ({
             ...prev,
-            [chave]: obterValorPadraoCampo(chave),
+            [chave]: VALORES_PADRAO_CAMPO[chave] ?? '',
         }));
     };
 
