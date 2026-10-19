@@ -42,7 +42,7 @@ const PREFERENCIAS_INICIAIS = {
     quartos_min: '',
     banheiros_min: '',
     vagas_min: '',
-    ordenar_por: 'recente',
+    ordenar_por: 'mais_relevantes',
 };
 
 const FAIXAS_ORCAMENTO_VENDA = [
@@ -478,6 +478,7 @@ const TelaPreferenciasMatch = ({
                         onChange={(e) => onAtualizarCampo('ordenar_por', e.target.value)}
                         className="w-full sm:w-72 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-800 focus:bg-white focus:border-rose-500 focus:outline-none"
                     >
+                        <option value="mais_relevantes">Mais Relevantes & Destaques (Recomendado)</option>
                         <option value="recente">Mais recentes primeiro</option>
                         <option value="preco_asc">Menor preço primeiro</option>
                         <option value="area_desc">Maior área útil primeiro</option>
@@ -556,6 +557,12 @@ const GaleriaCardMatch = ({ imovel, indiceFoto, onMudarFoto }) => {
             {/* Badges superiores */}
             <div className="absolute top-6 left-4 right-4 flex items-center justify-between gap-2 z-10">
                 <div className="flex flex-wrap items-center gap-1.5">
+                    {imovel.destaque && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-md">
+                            <Sparkles size={12} />
+                            <span>Destaque</span>
+                        </span>
+                    )}
                     <span className="px-2.5 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider bg-blue-600 text-white shadow-sm">
                         {imovel.modalidade || 'VENDA'}
                     </span>

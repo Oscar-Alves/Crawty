@@ -315,7 +315,7 @@ const Home = () => {
                                     }
                                     className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 focus:bg-white focus:border-blue-600 outline-none"
                                 >
-                                    <option value="">Padrão (Relevância)</option>
+                                    <option value="">Mais Relevantes (Destaques & Populares)</option>
                                     <option value="menor_preco">Menor Preço</option>
                                     <option value="maior_preco">Maior Preço</option>
                                     <option value="maior_area">Maior Área (m²)</option>

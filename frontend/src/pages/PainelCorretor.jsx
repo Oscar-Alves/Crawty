@@ -33,6 +33,9 @@ import {
     editarImovelCorretorApi,
     alterarStatusImovelCorretorApi,
     excluirImovelCorretorApi,
+    obterMetricasCorretorApi,
+    impulsionarImovelCorretorApi,
+    cancelarImpulsionamentoCorretorApi,
 } from '../services/api';
 import {
     estaAutenticadoCorretor,
@@ -41,6 +44,7 @@ import {
     encerrarSessaoCorretor,
 } from '../utils/authCorretor';
 import ModalImovelCorretor from '../components/ModalImovelCorretor';
+import ModalImpulsionarImovel from '../components/ModalImpulsionarImovel';
 
 const IMAGEM_PADRAO =
     'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=600&q=80';
@@ -126,18 +130,18 @@ const CabecalhoPainelCorretor = ({ corretor, onNovoImovel, onLogout }) => (
     </div>
 );
 
-const ResumoMetricasCorretor = ({ resumoConta, creditosImpulsionamento }) => (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+const ResumoMetricasCorretor = ({ resumoConta, metricas, creditosImpulsionamento }) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-2xl border border-gray-200/90 p-5 shadow-sm flex items-center justify-between">
             <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                    Imóveis Ativos na Vitrine
+                    Imóveis na Carteira
                 </span>
                 <p className="text-2xl sm:text-3xl font-extrabold text-gray-900 mt-1">
-                    {resumoConta.imoveis_ativos}
+                    {metricas?.total_imoveis ?? (resumoConta.imoveis_ativos + resumoConta.imoveis_inativos)}
                 </p>
                 <span className="text-xs text-gray-500">
-                    {resumoConta.imoveis_inativos} pausados/inativos
+                    {metricas?.ativos ?? resumoConta.imoveis_ativos} ativos • {metricas?.pausados ?? resumoConta.imoveis_inativos} pausados
                 </span>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
@@ -148,13 +152,13 @@ const ResumoMetricasCorretor = ({ resumoConta, creditosImpulsionamento }) => (
         <div className="bg-white rounded-2xl border border-gray-200/90 p-5 shadow-sm flex items-center justify-between">
             <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                    Cliques & Leads Gerados
+                    Cliques & Leads Totais
                 </span>
                 <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">
-                    {resumoConta.cliques_totais}
+                    {metricas?.total_cliques ?? resumoConta.cliques_totais}
                 </p>
                 <span className="text-xs text-gray-500">
-                    Interessados redirecionados aos seus anúncios
+                    Leads redirecionados ao seu contato
                 </span>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
@@ -162,20 +166,37 @@ const ResumoMetricasCorretor = ({ resumoConta, creditosImpulsionamento }) => (
             </div>
         </div>
 
+        <div className="bg-white rounded-2xl border border-amber-200/90 p-5 shadow-sm bg-gradient-to-br from-white to-amber-50/40 flex items-center justify-between">
+            <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-600">
+                    Imóveis em Destaque
+                </span>
+                <p className="text-2xl sm:text-3xl font-extrabold text-amber-700 mt-1">
+                    {metricas?.impulsionados ?? 0}
+                </p>
+                <span className="text-xs text-amber-900/70">
+                    Prioridade no topo por relevância
+                </span>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <Sparkles size={24} />
+            </div>
+        </div>
+
         <div className="bg-white rounded-2xl border border-gray-200/90 p-5 shadow-sm flex items-center justify-between">
             <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                    Destaques / Impulsionamento
+                    Posicionamento & Destaque
                 </span>
-                <p className="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1">
-                    {creditosImpulsionamento}
+                <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-1">
+                    Ativo
                 </p>
                 <span className="text-xs text-gray-500">
-                    Créditos disponíveis para topo das buscas
+                    {creditosImpulsionamento > 0 ? `${creditosImpulsionamento} créditos disponíveis` : 'Impulsionamento sob demanda'}
                 </span>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                <Sparkles size={24} />
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                <Award size={24} />
             </div>
         </div>
     </div>
@@ -185,16 +206,24 @@ const ItemImovelCarteira = ({
     imovel,
     onEditar,
     onAlternarStatus,
+    onImpulsionar,
     onExcluir,
 }) => {
     const ativo = imovel.ativo !== false;
+    const ehDestaque = Boolean(imovel.destaque);
     const fotoCapa = imovel.fotos?.[0] || IMAGEM_PADRAO;
     const temQueda =
         Number(imovel.preco_anterior || 0) > Number(imovel.preco || 0) &&
         Number(imovel.preco || 0) > 0;
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-200/90 p-4 shadow-sm hover:border-blue-200 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div
+            className={`bg-white rounded-2xl p-4 shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                ehDestaque
+                    ? 'border-2 border-amber-400/90 shadow-amber-100/50'
+                    : 'border border-gray-200/90 hover:border-blue-200'
+            }`}
+        >
             <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
                 <img
                     src={fotoCapa}
@@ -210,6 +239,12 @@ const ItemImovelCarteira = ({
 
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                        {ehDestaque && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-sm flex items-center gap-1">
+                                <Sparkles size={11} />
+                                <span>Em Destaque</span>
+                            </span>
+                        )}
                         <span
                             className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
                                 ativo
@@ -265,11 +300,25 @@ const ItemImovelCarteira = ({
             <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
                 <button
                     type="button"
+                    onClick={() => onImpulsionar(imovel)}
+                    title={ehDestaque ? 'Gerenciar destaque ativo' : 'Impulsionar imóvel para o topo'}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                        ehDestaque
+                            ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                            : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white shadow-sm'
+                    }`}
+                >
+                    <Sparkles size={14} />
+                    <span>{ehDestaque ? 'Destaque Ativo' : 'Impulsionar'}</span>
+                </button>
+
+                <button
+                    type="button"
                     onClick={() => onEditar(imovel)}
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors"
                 >
                     <Pencil size={14} />
-                    <span>Editar / Preço</span>
+                    <span>Editar</span>
                 </button>
 
                 <button
@@ -313,6 +362,7 @@ const AbaCarteiraImoveis = ({
     onNovoImovel,
     onEditarImovel,
     onAlternarStatus,
+    onImpulsionar,
     onExcluirImovel,
 }) => {
     const [busca, setBusca] = useState('');
@@ -410,6 +460,7 @@ const AbaCarteiraImoveis = ({
                         imovel={imovel}
                         onEditar={onEditarImovel}
                         onAlternarStatus={onAlternarStatus}
+                        onImpulsionar={onImpulsionar}
                         onExcluir={onExcluirImovel}
                     />
                 ))}
@@ -637,6 +688,7 @@ const PainelCorretor = () => {
         imoveis_inativos: 0,
         cliques_totais: 0,
     });
+    const [metricas, setMetricas] = useState(null);
     const [meusImoveis, setMeusImoveis] = useState([]);
     const [carregando, setCarregando] = useState(true);
     const [carregandoImoveis, setCarregandoImoveis] = useState(true);
@@ -647,6 +699,10 @@ const PainelCorretor = () => {
     // Modal de criação/edição de imóvel
     const [modalAberto, setModalAberto] = useState(false);
     const [imovelEmEdicao, setImovelEmEdicao] = useState(null);
+
+    // Modal de impulsionamento
+    const [imovelImpulsionar, setImovelImpulsionar] = useState(null);
+    const [carregandoImpulsionamento, setCarregandoImpulsionamento] = useState(false);
 
     const [formPerfil, setFormPerfil] = useState({
         nome: '',
@@ -673,9 +729,10 @@ const PainelCorretor = () => {
     const recarregarCarteira = useCallback(async () => {
         setCarregandoImoveis(true);
         try {
-            const [resPerfil, resImoveis] = await Promise.all([
+            const [resPerfil, resImoveis, resMetricas] = await Promise.all([
                 obterMeuPerfilCorretorApi(),
                 listarMeusImoveisCorretorApi(),
+                obterMetricasCorretorApi().catch(() => null),
             ]);
             if (resPerfil?.corretor) {
                 setCorretor(resPerfil.corretor);
@@ -694,6 +751,9 @@ const PainelCorretor = () => {
             }
             if (Array.isArray(resImoveis?.data)) {
                 setMeusImoveis(resImoveis.data);
+            }
+            if (resMetricas) {
+                setMetricas(resMetricas);
             }
         } catch (error) {
             if (error.status === 401) {
@@ -779,6 +839,32 @@ const PainelCorretor = () => {
         }
     };
 
+    const handleAbrirImpulsionar = (imovel) => {
+        setImovelImpulsionar(imovel);
+    };
+
+    const handleConfirmarImpulsionamento = async (idUnico, { dias, plano }) => {
+        setCarregandoImpulsionamento(true);
+        try {
+            const res = await impulsionarImovelCorretorApi(idUnico, { dias, plano });
+            exibirFeedback(res.mensagem || 'Imóvel impulsionado com sucesso!');
+            await recarregarCarteira();
+        } finally {
+            setCarregandoImpulsionamento(false);
+        }
+    };
+
+    const handleCancelarImpulsionamento = async (idUnico) => {
+        setCarregandoImpulsionamento(true);
+        try {
+            const res = await cancelarImpulsionamentoCorretorApi(idUnico);
+            exibirFeedback(res.mensagem || 'Impulsionamento cancelado.');
+            await recarregarCarteira();
+        } finally {
+            setCarregandoImpulsionamento(false);
+        }
+    };
+
     const handleSalvarPerfil = async (e) => {
         e.preventDefault();
         exibirFeedback('', '');
@@ -853,6 +939,7 @@ const PainelCorretor = () => {
 
             <ResumoMetricasCorretor
                 resumoConta={resumoConta}
+                metricas={metricas}
                 creditosImpulsionamento={corretor?.creditos_impulsionamento || 0}
             />
 
@@ -892,6 +979,7 @@ const PainelCorretor = () => {
                     onNovoImovel={handleAbrirNovoImovel}
                     onEditarImovel={handleAbrirEdicaoImovel}
                     onAlternarStatus={handleAlternarStatusImovel}
+                    onImpulsionar={handleAbrirImpulsionar}
                     onExcluirImovel={handleExcluirImovel}
                 />
             )}
@@ -932,6 +1020,14 @@ const PainelCorretor = () => {
                     setImovelEmEdicao(null);
                 }}
                 onSalvar={handleSalvarImovelModal}
+            />
+
+            <ModalImpulsionarImovel
+                imovel={imovelImpulsionar}
+                onClose={() => setImovelImpulsionar(null)}
+                onConfirmarImpulsionamento={handleConfirmarImpulsionamento}
+                onCancelarImpulsionamento={handleCancelarImpulsionamento}
+                carregando={carregandoImpulsionamento}
             />
         </main>
     );

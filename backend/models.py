@@ -53,6 +53,9 @@ class Imovel(BaseModel):
     ativo: bool = True
     descontinuado_em: Optional[datetime] = None
     cliques: Optional[int] = 0
+    destaque: Optional[bool] = False
+    destaque_ate: Optional[datetime] = None
+    destaque_plano: Optional[str] = None
 
     class Config:
         populate_by_name = True
@@ -108,3 +111,8 @@ class SalvarImovelCorretorRequest(BaseModel):
 
 class StatusImovelCorretorRequest(BaseModel):
     ativo: bool
+
+
+class ImpulsionarImovelRequest(BaseModel):
+    dias: int = Field(default=15, ge=1, le=365)
+    plano: Optional[str] = Field(default="15dias", max_length=50)

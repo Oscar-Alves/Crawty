@@ -22,7 +22,9 @@ Uma plataforma web completa para capturar, catalogar, analisar e exibir um compi
 
 3. **Portal B2B — Área do Corretor e Imobiliárias Parceiras (`/corretor/login` e `/corretor`)**:
    - Acesso fechado e exclusivo para corretores autônomos e imobiliárias credenciadas mediante contrato.
-   - Painel do parceiro com métricas da carteira (imóveis ativos, histórico e total de cliques/leads recebidos).
+   - **Gestão Completa de Imóveis Próprios (CRUD)**: Cadastro com fotos múltiplas, histórico de preços automático, pausa/reativação e contato direto no WhatsApp.
+   - **Sistema de Impulsionamento & Destaque (Vitrine Premium)**: Corretores podem impulsionar seus imóveis por períodos de 7, 15 ou 30 dias. Imóveis impulsionados recebem o selo dourado **"⭐ Destaque"** e posicionamento prioritário no topo da busca padrão por relevância e no Modo Match.
+   - **Painel de Métricas & Desempenho**: Visão analítica em tempo real de imóveis na carteira, ativos, pausados, impulsionados e total de cliques/leads gerados.
    - Edição de **Dados Comerciais e Contato Direto** (Nome, Registro CRECI, WhatsApp para leads, Telefone, E-mail e Site/Instagram), permitindo que pequenos corretores divulguem seus imóveis mesmo sem possuir site próprio.
 
 4. **Inteligência de Mercado Exclusiva (`/estatisticas`)**:

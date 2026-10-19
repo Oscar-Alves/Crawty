@@ -235,6 +235,11 @@ const DetalhesImovel = () => {
                                     <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">
                                         {imovel.tipo}
                                     </span>
+                                    {imovel.destaque && (
+                                        <span className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-yellow-500 text-white px-3 py-1 rounded-full text-xs font-extrabold shadow-sm">
+                                            <Sparkles size={13} /> Imóvel em Destaque
+                                        </span>
+                                    )}
                                     {exibirSubtipo && (
                                         <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold">
                                             {subtipo}

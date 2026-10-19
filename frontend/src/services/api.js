@@ -207,3 +207,42 @@ export const excluirImovelCorretorApi = async (idUnico) => {
     }
     return dados;
 };
+
+export const obterMetricasCorretorApi = async () => {
+    const response = await fetch(`${API_URL}/corretor/metricas`, {
+        method: "GET",
+        headers: montarHeadersAutenticados(false),
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(dados.detail || "Não foi possível carregar as métricas.");
+    }
+    return dados;
+};
+
+export const impulsionarImovelCorretorApi = async (idUnico, { dias = 15, plano = "15dias" } = {}) => {
+    const idSeguro = validarIdUnicoUrl(idUnico);
+    const response = await fetch(`${API_URL}/corretor/imoveis/${idSeguro}/impulsionar`, {
+        method: "POST",
+        headers: montarHeadersAutenticados(true),
+        body: JSON.stringify({ dias, plano }),
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(dados.detail || "Não foi possível impulsionar o imóvel.");
+    }
+    return dados;
+};
+
+export const cancelarImpulsionamentoCorretorApi = async (idUnico) => {
+    const idSeguro = validarIdUnicoUrl(idUnico);
+    const response = await fetch(`${API_URL}/corretor/imoveis/${idSeguro}/impulsionar`, {
+        method: "DELETE",
+        headers: montarHeadersAutenticados(false),
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(dados.detail || "Não foi possível cancelar o impulsionamento.");
+    }
+    return dados;
+};

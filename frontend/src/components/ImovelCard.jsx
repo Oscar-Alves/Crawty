@@ -1,4 +1,4 @@
-import { MapPin, BedDouble, Bath, Car, Ruler, TrendingDown } from 'lucide-react';
+import { MapPin, BedDouble, Bath, Car, Ruler, TrendingDown, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const FOTO_FALLBACK = 'https://placehold.co/600x400.png?text=Sem+Foto';
@@ -42,6 +42,7 @@ const obterMetricasCard = (imovel) => {
     const percentualDesconto = baixouPreco
         ? Math.round(((imovel.preco_anterior - imovel.preco) / imovel.preco_anterior) * 100)
         : 0;
+    const ehDestaque = Boolean(imovel.destaque);
 
     return {
         fotoCapa,
@@ -51,6 +52,7 @@ const obterMetricasCard = (imovel) => {
         areaExibida,
         baixouPreco,
         percentualDesconto,
+        ehDestaque,
     };
 };
 
@@ -63,6 +65,7 @@ const ImovelCard = ({ imovel }) => {
         areaExibida,
         baixouPreco,
         percentualDesconto,
+        ehDestaque,
     } = obterMetricasCard(imovel);
 
     const textoBadgeDesconto = percentualDesconto > 0 ? `-${percentualDesconto}%` : 'Baixou';
@@ -71,7 +74,13 @@ const ImovelCard = ({ imovel }) => {
     const labelModalidadePreco = imovel.modalidade === 'ALUGUEL' ? 'Aluguel' : 'Valor de Venda';
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col h-full group">
+        <div
+            className={`bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col h-full group ${
+                ehDestaque
+                    ? 'border-2 border-amber-400 shadow-amber-100/60 ring-1 ring-amber-300/40'
+                    : 'border border-gray-100'
+            }`}
+        >
             <div className="relative h-52 overflow-hidden bg-gray-100">
                 <img
                     src={fotoCapa}
@@ -83,6 +92,12 @@ const ImovelCard = ({ imovel }) => {
                     }}
                 />
                 <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                    {ehDestaque && (
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-md">
+                            <Sparkles size={11} />
+                            Destaque
+                        </span>
+                    )}
                     <span
                         className={`px-2.5 py-1 rounded-lg text-[11px] font-bold tracking-wide shadow-sm backdrop-blur-sm border ${getBadgeColor(
                             imovel.modalidade

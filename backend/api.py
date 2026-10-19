@@ -16,6 +16,7 @@ try:
         AtualizarPerfilCorretorRequest,
         SalvarImovelCorretorRequest,
         StatusImovelCorretorRequest,
+        ImpulsionarImovelRequest,
     )
     from auth import (
         gerar_hash_senha,
@@ -29,6 +30,9 @@ try:
         verificar_permissao_imovel,
         montar_documento_novo_imovel,
         montar_atualizacao_imovel,
+        aplicar_impulsionamento_imovel,
+        remover_impulsionamento_imovel,
+        calcular_metricas_carteira,
     )
 except ImportError:
     from backend.database import imoveis_collection, cliques_collection, corretores_collection
@@ -39,6 +43,7 @@ except ImportError:
         AtualizarPerfilCorretorRequest,
         SalvarImovelCorretorRequest,
         StatusImovelCorretorRequest,
+        ImpulsionarImovelRequest,
     )
     from backend.auth import (
         gerar_hash_senha,
@@ -52,6 +57,9 @@ except ImportError:
         verificar_permissao_imovel,
         montar_documento_novo_imovel,
         montar_atualizacao_imovel,
+        aplicar_impulsionamento_imovel,
+        remover_impulsionamento_imovel,
+        calcular_metricas_carteira,
     )
 
 ERROR_DB = "Banco não conectado"
@@ -93,6 +101,19 @@ app.add_middleware(
 def converter_mongo_para_dict(imovel):
     if "_id" in imovel:
         del imovel["_id"]
+    if imovel.get("destaque") and imovel.get("destaque_ate"):
+        agora = datetime.now(timezone.utc)
+        ate = imovel["destaque_ate"]
+        if isinstance(ate, str):
+            try:
+                ate = datetime.fromisoformat(ate.replace("Z", "+00:00"))
+            except ValueError:
+                pass
+        if isinstance(ate, datetime):
+            if ate.tzinfo is None:
+                ate = ate.replace(tzinfo=timezone.utc)
+            if ate < agora:
+                imovel["destaque"] = False
     return imovel
 
 
@@ -239,9 +260,10 @@ class FiltrosImoveisQuery(BaseModel):
     area_max: Optional[float] = None
     apenas_com_foto: Optional[bool] = None
     apenas_queda_preco: Optional[bool] = None
+    apenas_destaque: Optional[bool] = None
     ordenar_por: Optional[str] = Field(
         None,
-        pattern="^(menor_preco|maior_preco|maior_area|menor_area|recentes?|preco_asc|area_desc)$",
+        pattern="^(relevancia|mais_relevantes|relevantes|menor_preco|maior_preco|maior_area|menor_area|recentes?|preco_asc|area_desc)?$",
     )
     status: str = Field("ativos", pattern="^(ativos|descontinuados|todos)$")
 
@@ -365,10 +387,33 @@ def _construir_query_imoveis(params: FiltrosImoveisQuery) -> Dict[str, Any]:
             }
         )
 
+    if params.apenas_destaque:
+        agora = datetime.now(timezone.utc)
+        conds.append(
+            {
+                "destaque": True,
+                "$or": [
+                    {"destaque_ate": None},
+                    {"destaque_ate": {"$gte": agora}},
+                ],
+            }
+        )
+
     return {"$and": conds} if conds else {}
 
 
+CRITERIO_RELEVANCIA = [
+    ("destaque", pymongo.DESCENDING),
+    ("cliques", pymongo.DESCENDING),
+    ("criado_em", pymongo.DESCENDING),
+    ("last_updated", pymongo.DESCENDING),
+]
+
 SORT_CRITERIA_MAP = {
+    "": CRITERIO_RELEVANCIA,
+    "relevancia": CRITERIO_RELEVANCIA,
+    "mais_relevantes": CRITERIO_RELEVANCIA,
+    "relevantes": CRITERIO_RELEVANCIA,
     "menor_preco": [("preco", pymongo.ASCENDING)],
     "preco_asc": [("preco", pymongo.ASCENDING)],
     "maior_preco": [("preco", pymongo.DESCENDING)],
@@ -389,9 +434,7 @@ def listar_imoveis(params: Annotated[FiltrosImoveisQuery, Query()]):
     query = _construir_query_imoveis(params)
     total_registros = imoveis_collection.count_documents(query)
 
-    sort_criteria = SORT_CRITERIA_MAP.get(
-        params.ordenar_por or "", [("id_unico", pymongo.ASCENDING)]
-    )
+    sort_criteria = SORT_CRITERIA_MAP.get(params.ordenar_por or "", CRITERIO_RELEVANCIA)
     cursor = imoveis_collection.find(query).sort(sort_criteria).skip(skip).limit(params.limit)
     dados = [converter_mongo_para_dict(doc) for doc in cursor]
 
@@ -1154,6 +1197,65 @@ def excluir_imovel_corretor(
     _obter_imovel_do_corretor_ou_erro(id_unico, corretor_atual)
     imoveis_collection.delete_one({"id_unico": id_unico})
     return {"mensagem": "Imóvel excluído permanentemente da sua carteira."}
+
+
+@app.get("/corretor/metricas", responses=RESPONSES_401_500)
+def obter_metricas_carteira_corretor(
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    """
+    Retorna métricas consolidadas da carteira do corretor:
+    total de imóveis, ativos, pausados, impulsionados, total de cliques acumulados e top imóveis.
+    """
+    if imoveis_collection is None:
+        raise HTTPException(status_code=500, detail=ERROR_DB)
+
+    filtro = construir_filtro_carteira_corretor(corretor_atual)
+    cursor = imoveis_collection.find(filtro, {"_id": 0})
+    imoveis = list(cursor)
+    return calcular_metricas_carteira(imoveis)
+
+
+@app.post("/corretor/imoveis/{id_unico}/impulsionar", responses=RESPONSES_CORRETOR_IMOVEL)
+def impulsionar_imovel_corretor(
+    id_unico: str,
+    req: ImpulsionarImovelRequest,
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    """
+    Ativa o destaque/impulsionamento do imóvel do corretor por determinado número de dias.
+    Imóveis em destaque aparecem prioritariamente no topo das buscas por relevância e na vitrine.
+    """
+    _obter_imovel_do_corretor_ou_erro(id_unico, corretor_atual)
+    atualizacao = aplicar_impulsionamento_imovel(req.dias, req.plano or "15dias")
+    imoveis_collection.update_one({"id_unico": id_unico}, {"$set": atualizacao})
+    doc_final = imoveis_collection.find_one({"id_unico": id_unico}, {"_id": 0})
+    if doc_final:
+        converter_mongo_para_dict(doc_final)
+    return {
+        "mensagem": f"Imóvel impulsionado com sucesso por {req.dias} dias!",
+        "imovel": doc_final,
+    }
+
+
+@app.delete("/corretor/imoveis/{id_unico}/impulsionar", responses=RESPONSES_CORRETOR_IMOVEL)
+def cancelar_impulsionamento_imovel_corretor(
+    id_unico: str,
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    """
+    Cancela o impulsionamento ativo de um imóvel.
+    """
+    _obter_imovel_do_corretor_ou_erro(id_unico, corretor_atual)
+    atualizacao = remover_impulsionamento_imovel()
+    imoveis_collection.update_one({"id_unico": id_unico}, {"$set": atualizacao})
+    doc_final = imoveis_collection.find_one({"id_unico": id_unico}, {"_id": 0})
+    if doc_final:
+        converter_mongo_para_dict(doc_final)
+    return {
+        "mensagem": "Impulsionamento cancelado com sucesso.",
+        "imovel": doc_final,
+    }
 
 
 if __name__ == "__main__":

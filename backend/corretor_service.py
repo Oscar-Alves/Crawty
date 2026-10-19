@@ -1,6 +1,6 @@
 import re
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import quote
 from typing import Dict, Any, List
 
@@ -170,6 +170,9 @@ def montar_documento_novo_imovel(
         "last_updated": agora,
         "descontinuado_em": None if dados.ativo else agora,
         "cliques": 0,
+        "destaque": False,
+        "destaque_ate": None,
+        "destaque_plano": None,
     }
 
 
@@ -198,4 +201,85 @@ def montar_atualizacao_imovel(
         campos["historico_precos"] = historico
 
     return campos
+
+
+def aplicar_impulsionamento_imovel(
+    dias: int,
+    plano: str,
+) -> Dict[str, Any]:
+    agora = datetime.now(timezone.utc)
+    destaque_ate = agora + timedelta(days=dias)
+    return {
+        "destaque": True,
+        "destaque_em": agora,
+        "destaque_ate": destaque_ate,
+        "destaque_plano": plano,
+        "last_updated": agora,
+    }
+
+
+def remover_impulsionamento_imovel() -> Dict[str, Any]:
+    agora = datetime.now(timezone.utc)
+    return {
+        "destaque": False,
+        "destaque_ate": None,
+        "destaque_plano": None,
+        "last_updated": agora,
+    }
+
+
+def _eh_destaque_vigente(imovel: Dict[str, Any], agora: datetime) -> bool:
+    if not imovel.get("destaque"):
+        return False
+    ate = imovel.get("destaque_ate")
+    if not ate:
+        return True
+    if isinstance(ate, str):
+        try:
+            ate = datetime.fromisoformat(ate.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if isinstance(ate, datetime):
+        if ate.tzinfo is None:
+            ate = ate.replace(tzinfo=timezone.utc)
+        return ate >= agora
+    return False
+
+
+def calcular_metricas_carteira(imoveis: List[Dict[str, Any]]) -> Dict[str, Any]:
+    agora = datetime.now(timezone.utc)
+    total = len(imoveis)
+    ativos = sum(1 for i in imoveis if i.get("ativo") is not False)
+    pausados = total - ativos
+    impulsionados = sum(1 for i in imoveis if _eh_destaque_vigente(i, agora))
+    total_cliques = sum(int(i.get("cliques") or 0) for i in imoveis)
+
+    top_imoveis = sorted(
+        imoveis,
+        key=lambda x: int(x.get("cliques") or 0),
+        reverse=True,
+    )[:5]
+
+    top_resumido = [
+        {
+            "id_unico": x.get("id_unico"),
+            "titulo": x.get("titulo"),
+            "preco": x.get("preco"),
+            "modalidade": x.get("modalidade"),
+            "bairro": x.get("bairro"),
+            "cliques": int(x.get("cliques") or 0),
+            "destaque": _eh_destaque_vigente(x, agora),
+        }
+        for x in top_imoveis
+    ]
+
+    return {
+        "total_imoveis": total,
+        "ativos": ativos,
+        "pausados": pausados,
+        "impulsionados": impulsionados,
+        "total_cliques": total_cliques,
+        "top_imoveis": top_resumido,
+    }
+
 
