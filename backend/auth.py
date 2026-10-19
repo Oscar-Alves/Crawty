@@ -127,7 +127,6 @@ def serializar_corretor_publico(doc: Dict[str, Any]) -> Dict[str, Any]:
         "email": doc.get("email", ""),
         "site_externo": doc.get("site_externo", ""),
         "ativo": doc.get("ativo", True) is not False,
-        "creditos_impulsionamento": int(doc.get("creditos_impulsionamento", 0) or 0),
         "criado_em": doc.get("criado_em"),
         "ultimo_login": doc.get("ultimo_login"),
     }

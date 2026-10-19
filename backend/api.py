@@ -399,6 +399,8 @@ def _construir_query_imoveis(params: FiltrosImoveisQuery) -> Dict[str, Any]:
             }
         )
 
+    conds.append({"excluido": {"$ne": True}})
+
     return {"$and": conds} if conds else {}
 
 
@@ -1175,6 +1177,8 @@ def alterar_status_imovel_corretor(
     agora = datetime.now(timezone.utc)
     campos_set = {
         "ativo": bool(dados.ativo),
+        "excluido": False if dados.ativo else False,
+        "removido_em": None if dados.ativo else None,
         "last_updated": agora,
         "descontinuado_em": None if dados.ativo else agora,
     }
@@ -1183,8 +1187,41 @@ def alterar_status_imovel_corretor(
         {"$set": campos_set},
     )
     doc_final = imoveis_collection.find_one({"id_unico": id_unico}, {"_id": 0})
+    if doc_final:
+        converter_mongo_para_dict(doc_final)
     return {
         "mensagem": "Status do imóvel atualizado com sucesso!",
+        "imovel": doc_final,
+    }
+
+
+@app.post("/corretor/imoveis/{id_unico}/reativar", responses=RESPONSES_CORRETOR_IMOVEL)
+def reativar_imovel_corretor(
+    id_unico: str,
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    """
+    Reativa um imóvel arquivado ou pausado para a vitrine pública,
+    permitindo que aluguéis que voltaram a ficar vagos ou imóveis relistados fiquem ativos.
+    """
+    _obter_imovel_do_corretor_ou_erro(id_unico, corretor_atual)
+    agora = datetime.now(timezone.utc)
+    campos_reativar = {
+        "ativo": True,
+        "excluido": False,
+        "removido_em": None,
+        "descontinuado_em": None,
+        "last_updated": agora,
+    }
+    imoveis_collection.update_one(
+        {"id_unico": id_unico},
+        {"$set": campos_reativar},
+    )
+    doc_final = imoveis_collection.find_one({"id_unico": id_unico}, {"_id": 0})
+    if doc_final:
+        converter_mongo_para_dict(doc_final)
+    return {
+        "mensagem": "Imóvel reativado com sucesso na vitrine pública!",
         "imovel": doc_final,
     }
 
@@ -1194,9 +1231,32 @@ def excluir_imovel_corretor(
     id_unico: str,
     corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
 ):
+    """
+    Exclusão lógica (Soft Delete): move o imóvel para o histórico de arquivados,
+    preservando permanentemente a contagem de cliques/leads e permitindo reativação futura.
+    """
     _obter_imovel_do_corretor_ou_erro(id_unico, corretor_atual)
-    imoveis_collection.delete_one({"id_unico": id_unico})
-    return {"mensagem": "Imóvel excluído permanentemente da sua carteira."}
+    agora = datetime.now(timezone.utc)
+    campos_arquivar = {
+        "ativo": False,
+        "excluido": True,
+        "destaque": False,
+        "destaque_ate": None,
+        "removido_em": agora,
+        "descontinuado_em": agora,
+        "last_updated": agora,
+    }
+    imoveis_collection.update_one(
+        {"id_unico": id_unico},
+        {"$set": campos_arquivar},
+    )
+    doc_final = imoveis_collection.find_one({"id_unico": id_unico}, {"_id": 0})
+    if doc_final:
+        converter_mongo_para_dict(doc_final)
+    return {
+        "mensagem": "Imóvel movido para o histórico de arquivados. O histórico de cliques e leads foi preservado e você pode reativá-lo a qualquer momento.",
+        "imovel": doc_final,
+    }
 
 
 @app.get("/corretor/metricas", responses=RESPONSES_401_500)

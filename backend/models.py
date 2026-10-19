@@ -56,6 +56,8 @@ class Imovel(BaseModel):
     destaque: Optional[bool] = False
     destaque_ate: Optional[datetime] = None
     destaque_plano: Optional[str] = None
+    excluido: Optional[bool] = False
+    removido_em: Optional[datetime] = None
 
     class Config:
         populate_by_name = True

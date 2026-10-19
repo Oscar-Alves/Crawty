@@ -203,7 +203,20 @@ export const excluirImovelCorretorApi = async (idUnico) => {
     });
     const dados = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(dados.detail || "Não foi possível excluir o imóvel.");
+        throw new Error(dados.detail || "Não foi possível arquivar o imóvel.");
+    }
+    return dados;
+};
+
+export const reativarImovelCorretorApi = async (idUnico) => {
+    const idSeguro = validarIdUnicoUrl(idUnico);
+    const response = await fetch(`${API_URL}/corretor/imoveis/${idSeguro}/reativar`, {
+        method: "POST",
+        headers: montarHeadersAutenticados(false),
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(dados.detail || "Não foi possível reativar o imóvel.");
     }
     return dados;
 };

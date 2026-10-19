@@ -36,7 +36,6 @@ def comando_criar(args: argparse.Namespace) -> None:
         "email": (args.email or "").strip(),
         "site_externo": (args.site or "").strip(),
         "ativo": True,
-        "creditos_impulsionamento": int(args.creditos or 0),
         "criado_em": agora,
         "atualizado_em": agora,
         "ultimo_login": None,
@@ -124,7 +123,6 @@ def construir_parser() -> argparse.ArgumentParser:
     p_criar.add_argument("--email", default="", help="E-mail comercial")
     p_criar.add_argument("--site", default="", help="URL do site externo (opcional)")
     p_criar.add_argument("--role", choices=["corretor", "admin"], default="corretor", help="Perfil de acesso")
-    p_criar.add_argument("--creditos", type=int, default=0, help="Créditos iniciais de impulsionamento")
     p_criar.set_defaults(func=comando_criar)
 
     p_listar = subparsers.add_parser("listar", help="Lista todos os corretores cadastrados")

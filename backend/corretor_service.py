@@ -173,6 +173,8 @@ def montar_documento_novo_imovel(
         "destaque": False,
         "destaque_ate": None,
         "destaque_plano": None,
+        "excluido": False,
+        "removido_em": None,
     }
 
 
@@ -229,7 +231,7 @@ def remover_impulsionamento_imovel() -> Dict[str, Any]:
 
 
 def _eh_destaque_vigente(imovel: Dict[str, Any], agora: datetime) -> bool:
-    if not imovel.get("destaque"):
+    if not imovel.get("destaque") or imovel.get("excluido"):
         return False
     ate = imovel.get("destaque_ate")
     if not ate:
@@ -248,10 +250,13 @@ def _eh_destaque_vigente(imovel: Dict[str, Any], agora: datetime) -> bool:
 
 def calcular_metricas_carteira(imoveis: List[Dict[str, Any]]) -> Dict[str, Any]:
     agora = datetime.now(timezone.utc)
-    total = len(imoveis)
-    ativos = sum(1 for i in imoveis if i.get("ativo") is not False)
-    pausados = total - ativos
+    total_geral = len(imoveis)
+    arquivados = sum(1 for i in imoveis if i.get("excluido") is True)
+    ativos = sum(1 for i in imoveis if i.get("ativo") is not False and not i.get("excluido"))
+    pausados = sum(1 for i in imoveis if i.get("ativo") is False and not i.get("excluido"))
     impulsionados = sum(1 for i in imoveis if _eh_destaque_vigente(i, agora))
+
+    # A soma de cliques e leads inclui TODOS os imóveis da história do corretor (ativos, pausados e arquivados)
     total_cliques = sum(int(i.get("cliques") or 0) for i in imoveis)
 
     top_imoveis = sorted(
@@ -269,14 +274,17 @@ def calcular_metricas_carteira(imoveis: List[Dict[str, Any]]) -> Dict[str, Any]:
             "bairro": x.get("bairro"),
             "cliques": int(x.get("cliques") or 0),
             "destaque": _eh_destaque_vigente(x, agora),
+            "excluido": bool(x.get("excluido")),
         }
         for x in top_imoveis
     ]
 
     return {
-        "total_imoveis": total,
+        "total_imoveis": total_geral - arquivados,
+        "total_geral": total_geral,
         "ativos": ativos,
         "pausados": pausados,
+        "arquivados": arquivados,
         "impulsionados": impulsionados,
         "total_cliques": total_cliques,
         "top_imoveis": top_resumido,

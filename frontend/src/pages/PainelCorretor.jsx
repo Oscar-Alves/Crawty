@@ -24,6 +24,8 @@ import {
     Search,
     TrendingDown,
     UserCog,
+    RotateCcw,
+    Archive,
 } from 'lucide-react';
 import {
     obterMeuPerfilCorretorApi,
@@ -33,6 +35,7 @@ import {
     editarImovelCorretorApi,
     alterarStatusImovelCorretorApi,
     excluirImovelCorretorApi,
+    reativarImovelCorretorApi,
     obterMetricasCorretorApi,
     impulsionarImovelCorretorApi,
     cancelarImpulsionamentoCorretorApi,
@@ -61,9 +64,16 @@ const formatarMoeda = (valor) => {
 const filtrarImoveisCarteira = (lista, termoBusca, filtroStatus) => {
     const termo = termoBusca.trim().toLowerCase();
     return lista.filter((imovel) => {
+        const ehExcluido = Boolean(imovel.excluido);
         const ehAtivo = imovel.ativo !== false;
-        if (filtroStatus === 'ativos' && !ehAtivo) return false;
-        if (filtroStatus === 'inativos' && ehAtivo) return false;
+
+        if (filtroStatus === 'arquivados') {
+            if (!ehExcluido) return false;
+        } else {
+            if (ehExcluido) return false;
+            if (filtroStatus === 'ativos' && !ehAtivo) return false;
+            if (filtroStatus === 'inativos' && ehAtivo) return false;
+        }
 
         if (!termo) return true;
         const titulo = (imovel.titulo || '').toLowerCase();
@@ -130,8 +140,8 @@ const CabecalhoPainelCorretor = ({ corretor, onNovoImovel, onLogout }) => (
     </div>
 );
 
-const ResumoMetricasCorretor = ({ resumoConta, metricas, creditosImpulsionamento }) => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+const ResumoMetricasCorretor = ({ resumoConta, metricas }) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-2xl border border-gray-200/90 p-5 shadow-sm flex items-center justify-between">
             <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
@@ -142,6 +152,7 @@ const ResumoMetricasCorretor = ({ resumoConta, metricas, creditosImpulsionamento
                 </p>
                 <span className="text-xs text-gray-500">
                     {metricas?.ativos ?? resumoConta.imoveis_ativos} ativos • {metricas?.pausados ?? resumoConta.imoveis_inativos} pausados
+                    {(metricas?.arquivados || 0) > 0 && ` • ${metricas.arquivados} no histórico`}
                 </span>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
@@ -158,7 +169,7 @@ const ResumoMetricasCorretor = ({ resumoConta, metricas, creditosImpulsionamento
                     {metricas?.total_cliques ?? resumoConta.cliques_totais}
                 </p>
                 <span className="text-xs text-gray-500">
-                    Leads redirecionados ao seu contato
+                    Histórico acumulado preservado
                 </span>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
@@ -182,23 +193,6 @@ const ResumoMetricasCorretor = ({ resumoConta, metricas, creditosImpulsionamento
                 <Sparkles size={24} />
             </div>
         </div>
-
-        <div className="bg-white rounded-2xl border border-gray-200/90 p-5 shadow-sm flex items-center justify-between">
-            <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                    Posicionamento & Destaque
-                </span>
-                <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-1">
-                    Ativo
-                </p>
-                <span className="text-xs text-gray-500">
-                    {creditosImpulsionamento > 0 ? `${creditosImpulsionamento} créditos disponíveis` : 'Impulsionamento sob demanda'}
-                </span>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-                <Award size={24} />
-            </div>
-        </div>
     </div>
 );
 
@@ -208,9 +202,11 @@ const ItemImovelCarteira = ({
     onAlternarStatus,
     onImpulsionar,
     onExcluir,
+    onReativar,
 }) => {
-    const ativo = imovel.ativo !== false;
-    const ehDestaque = Boolean(imovel.destaque);
+    const ehExcluido = Boolean(imovel.excluido);
+    const ativo = imovel.ativo !== false && !ehExcluido;
+    const ehDestaque = Boolean(imovel.destaque) && !ehExcluido;
     const fotoCapa = imovel.fotos?.[0] || IMAGEM_PADRAO;
     const temQueda =
         Number(imovel.preco_anterior || 0) > Number(imovel.preco || 0) &&
@@ -218,10 +214,12 @@ const ItemImovelCarteira = ({
 
     return (
         <div
-            className={`bg-white rounded-2xl p-4 shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-                ehDestaque
-                    ? 'border-2 border-amber-400/90 shadow-amber-100/50'
-                    : 'border border-gray-200/90 hover:border-blue-200'
+            className={`rounded-2xl p-4 shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                ehExcluido
+                    ? 'bg-slate-50/70 border border-dashed border-gray-300 opacity-90'
+                    : ehDestaque
+                    ? 'bg-white border-2 border-amber-400/90 shadow-amber-100/50'
+                    : 'bg-white border border-gray-200/90 hover:border-blue-200'
             }`}
         >
             <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
@@ -239,21 +237,30 @@ const ItemImovelCarteira = ({
 
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                        {ehDestaque && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-sm flex items-center gap-1">
-                                <Sparkles size={11} />
-                                <span>Em Destaque</span>
+                        {ehExcluido ? (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-200 text-slate-700 border border-slate-300 flex items-center gap-1">
+                                <Archive size={11} />
+                                <span>Histórico / Arquivado</span>
                             </span>
+                        ) : (
+                            <>
+                                {ehDestaque && (
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-sm flex items-center gap-1">
+                                        <Sparkles size={11} />
+                                        <span>Em Destaque</span>
+                                    </span>
+                                )}
+                                <span
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                                        ativo
+                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    }`}
+                                >
+                                    {ativo ? 'Ativo na Vitrine' : 'Pausado / Inativo'}
+                                </span>
+                            </>
                         )}
-                        <span
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                                ativo
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
-                            }`}
-                        >
-                            {ativo ? 'Ativo na Vitrine' : 'Pausado / Inativo'}
-                        </span>
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-blue-50 text-blue-700">
                             {imovel.modalidade}
                         </span>
@@ -297,61 +304,84 @@ const ItemImovelCarteira = ({
                 </div>
             </div>
 
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
-                <button
-                    type="button"
-                    onClick={() => onImpulsionar(imovel)}
-                    title={ehDestaque ? 'Gerenciar destaque ativo' : 'Impulsionar imóvel para o topo'}
-                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                        ehDestaque
-                            ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
-                            : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white shadow-sm'
-                    }`}
-                >
-                    <Sparkles size={14} />
-                    <span>{ehDestaque ? 'Destaque Ativo' : 'Impulsionar'}</span>
-                </button>
+            {ehExcluido ? (
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-200">
+                    <button
+                        type="button"
+                        onClick={() => onReativar(imovel)}
+                        title="Reativar este imóvel na vitrine ativa"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all"
+                    >
+                        <RotateCcw size={14} />
+                        <span>Reativar Imóvel</span>
+                    </button>
 
-                <button
-                    type="button"
-                    onClick={() => onEditar(imovel)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors"
-                >
-                    <Pencil size={14} />
-                    <span>Editar</span>
-                </button>
+                    <button
+                        type="button"
+                        onClick={() => onEditar(imovel)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-gray-100 text-gray-700 text-xs font-bold border border-gray-200 transition-colors"
+                    >
+                        <Pencil size={14} />
+                        <span>Editar</span>
+                    </button>
+                </div>
+            ) : (
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
+                    <button
+                        type="button"
+                        onClick={() => onImpulsionar(imovel)}
+                        title={ehDestaque ? 'Gerenciar destaque ativo' : 'Impulsionar imóvel para o topo'}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                            ehDestaque
+                                ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                                : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white shadow-sm'
+                        }`}
+                    >
+                        <Sparkles size={14} />
+                        <span>{ehDestaque ? 'Destaque Ativo' : 'Impulsionar'}</span>
+                    </button>
 
-                <button
-                    type="button"
-                    onClick={() => onAlternarStatus(imovel)}
-                    title={ativo ? 'Pausar exibição do imóvel' : 'Reativar imóvel na vitrine'}
-                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
-                        ativo
-                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-800'
-                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                    }`}
-                >
-                    <Power size={14} />
-                    <span>{ativo ? 'Pausar' : 'Ativar'}</span>
-                </button>
+                    <button
+                        type="button"
+                        onClick={() => onEditar(imovel)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors"
+                    >
+                        <Pencil size={14} />
+                        <span>Editar</span>
+                    </button>
 
-                <Link
-                    to={`/imovel/${imovel.id_unico}`}
-                    title="Visualizar página pública do imóvel"
-                    className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
-                >
-                    <Eye size={15} />
-                </Link>
+                    <button
+                        type="button"
+                        onClick={() => onAlternarStatus(imovel)}
+                        title={ativo ? 'Pausar exibição do imóvel' : 'Reativar imóvel na vitrine'}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
+                            ativo
+                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-800'
+                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                        }`}
+                    >
+                        <Power size={14} />
+                        <span>{ativo ? 'Pausar' : 'Ativar'}</span>
+                    </button>
 
-                <button
-                    type="button"
-                    onClick={() => onExcluir(imovel)}
-                    title="Excluir imóvel permanentemente"
-                    className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
-                >
-                    <Trash2 size={15} />
-                </button>
-            </div>
+                    <Link
+                        to={`/imovel/${imovel.id_unico}`}
+                        title="Visualizar página pública do imóvel"
+                        className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+                    >
+                        <Eye size={15} />
+                    </Link>
+
+                    <button
+                        type="button"
+                        onClick={() => onExcluir(imovel)}
+                        title="Mover imóvel para o histórico de arquivados"
+                        className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
+                    >
+                        <Trash2 size={15} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
@@ -364,14 +394,48 @@ const AbaCarteiraImoveis = ({
     onAlternarStatus,
     onImpulsionar,
     onExcluirImovel,
+    onReativarImovel,
 }) => {
     const [busca, setBusca] = useState('');
     const [filtroStatus, setFiltroStatus] = useState('todos');
+
+    const totalCarteira = imoveis.filter((i) => !i.excluido).length;
+    const totalAtivos = imoveis.filter((i) => !i.excluido && i.ativo !== false).length;
+    const totalPausados = imoveis.filter((i) => !i.excluido && i.ativo === false).length;
+    const totalArquivados = imoveis.filter((i) => Boolean(i.excluido)).length;
+
+    const opcoesFiltro = [
+        { id: 'todos', label: `Carteira Ativa (${totalCarteira})` },
+        { id: 'ativos', label: `Ativos (${totalAtivos})` },
+        { id: 'inativos', label: `Pausados (${totalPausados})` },
+        { id: 'arquivados', label: `Histórico / Arquivados (${totalArquivados})` },
+    ];
 
     const filtrados = useMemo(
         () => filtrarImoveisCarteira(imoveis, busca, filtroStatus),
         [imoveis, busca, filtroStatus]
     );
+
+    const mensagemVazia = useMemo(() => {
+        if (imoveis.length === 0) {
+            return {
+                titulo: 'Você ainda não cadastrou imóveis próprios',
+                subtitulo:
+                    'Clique no botão abaixo para publicar seu primeiro imóvel com fotos, valor e contato direto no seu WhatsApp.',
+            };
+        }
+        if (filtroStatus === 'arquivados') {
+            return {
+                titulo: 'Nenhum imóvel arquivado no histórico',
+                subtitulo:
+                    'Quando você mover um imóvel alugado ou vendido para o histórico, ele aparecerá aqui com todos os cliques preservados para você reativá-lo com 1 clique.',
+            };
+        }
+        return {
+            titulo: 'Nenhum imóvel encontrado para este filtro',
+            subtitulo: 'Tente limpar o termo de busca ou alternar o filtro de status.',
+        };
+    }, [imoveis.length, filtroStatus]);
 
     return (
         <div className="space-y-4">
@@ -391,18 +455,8 @@ const AbaCarteiraImoveis = ({
                     />
                 </div>
 
-                <div className="flex items-center gap-2">
-                    {[
-                        { id: 'todos', label: `Todos (${imoveis.length})` },
-                        {
-                            id: 'ativos',
-                            label: `Ativos (${imoveis.filter((i) => i.ativo !== false).length})`,
-                        },
-                        {
-                            id: 'inativos',
-                            label: `Pausados (${imoveis.filter((i) => i.ativo === false).length})`,
-                        },
-                    ].map((op) => (
+                <div className="flex flex-wrap items-center gap-2">
+                    {opcoesFiltro.map((op) => (
                         <button
                             key={op.id}
                             type="button"
@@ -431,14 +485,10 @@ const AbaCarteiraImoveis = ({
                         <Home size={28} />
                     </div>
                     <h3 className="text-base sm:text-lg font-extrabold text-gray-900">
-                        {imoveis.length === 0
-                            ? 'Você ainda não cadastrou imóveis próprios'
-                            : 'Nenhum imóvel encontrado para este filtro'}
+                        {mensagemVazia.titulo}
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-500 mt-1 max-w-md mx-auto">
-                        {imoveis.length === 0
-                            ? 'Clique no botão abaixo para publicar seu primeiro imóvel com fotos, valor e contato direto no seu WhatsApp.'
-                            : 'Tente limpar o termo de busca ou alternar o filtro de status.'}
+                        {mensagemVazia.subtitulo}
                     </p>
                     {imoveis.length === 0 && (
                         <button
@@ -462,6 +512,7 @@ const AbaCarteiraImoveis = ({
                         onAlternarStatus={onAlternarStatus}
                         onImpulsionar={onImpulsionar}
                         onExcluir={onExcluirImovel}
+                        onReativar={onReativarImovel}
                     />
                 ))}
         </div>
@@ -825,17 +876,30 @@ const PainelCorretor = () => {
 
     const handleExcluirImovel = async (imovel) => {
         const confirmar = globalThis.confirm(
-            `Tem certeza que deseja excluir permanentemente o imóvel "${imovel.titulo}" (Cód. ${imovel.codigo_original})?`
+            `Deseja mover o imóvel "${imovel.titulo}" (Cód. ${imovel.codigo_original}) para o histórico de arquivados?\n\nO histórico de cliques e métricas de leads será preservado permanentemente e você poderá reativá-lo a qualquer momento quando o imóvel voltar a ficar vago/disponível.`
         );
         if (!confirmar) return;
 
         exibirFeedback('', '');
         try {
             await excluirImovelCorretorApi(imovel.id_unico);
-            exibirFeedback('Imóvel excluído da sua carteira.');
+            exibirFeedback('Imóvel movido para o histórico de arquivados com sucesso.');
             await recarregarCarteira();
         } catch (error) {
-            exibirFeedback('', error.message || 'Erro ao excluir o imóvel.');
+            exibirFeedback('', error.message || 'Erro ao arquivar o imóvel.');
+        }
+    };
+
+    const handleReativarImovel = async (imovel) => {
+        exibirFeedback('', '');
+        try {
+            await reativarImovelCorretorApi(imovel.id_unico);
+            exibirFeedback(
+                `Imóvel "${imovel.titulo}" restaurado e reativado na sua vitrine com sucesso!`
+            );
+            await recarregarCarteira();
+        } catch (error) {
+            exibirFeedback('', error.message || 'Erro ao reativar o imóvel.');
         }
     };
 
@@ -915,6 +979,8 @@ const PainelCorretor = () => {
         );
     }
 
+    const totalImoveisCarteira = meusImoveis.filter((i) => !i.excluido).length;
+
     return (
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <CabecalhoPainelCorretor
@@ -940,7 +1006,6 @@ const PainelCorretor = () => {
             <ResumoMetricasCorretor
                 resumoConta={resumoConta}
                 metricas={metricas}
-                creditosImpulsionamento={corretor?.creditos_impulsionamento || 0}
             />
 
             {/* Navegação por Abas Internas */}
@@ -955,7 +1020,7 @@ const PainelCorretor = () => {
                     }`}
                 >
                     <Home size={16} />
-                    <span>Meus Imóveis ({meusImoveis.length})</span>
+                    <span>Meus Imóveis ({totalImoveisCarteira})</span>
                 </button>
 
                 <button
@@ -981,6 +1046,7 @@ const PainelCorretor = () => {
                     onAlternarStatus={handleAlternarStatusImovel}
                     onImpulsionar={handleAbrirImpulsionar}
                     onExcluirImovel={handleExcluirImovel}
+                    onReativarImovel={handleReativarImovel}
                 />
             )}
 

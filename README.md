@@ -77,8 +77,7 @@ python gerenciar_corretores.py criar \
   --telefone "(32) 3371-0000" \
   --email "contato@joaosilvaimoveis.com.br" \
   --site "https://instagram.com/joaosilvaimoveis" \
-  --role corretor \
-  --creditos 5
+  --role corretor
 ```
 
 **Parâmetros disponíveis no comando `criar`:**
@@ -94,7 +93,6 @@ python gerenciar_corretores.py criar \
 | `--email` | Não | E-mail comercial de contato. |
 | `--site` | Não | Link externo para site ou perfil de rede social. |
 | `--role` | Não | Perfil da conta: `corretor` (padrão) ou `admin`. |
-| `--creditos` | Não | Quantidade inicial de créditos de impulsionamento/destaque (padrão: `0`). |
 
 ### 2. Listar todos os corretores cadastrados (`listar`)
 Exibe uma tabela no terminal com o login, nome do responsável, imobiliária/marca, perfil (`role`) e status atual (`ATIVO` ou `SUSPENSO`):
