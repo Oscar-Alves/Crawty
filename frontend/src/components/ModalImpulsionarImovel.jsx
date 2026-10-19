@@ -3,9 +3,7 @@ import {
     Sparkles,
     X,
     Check,
-    Calendar,
     Flame,
-    ArrowUpRight,
     TrendingUp,
     ShieldAlert,
 } from 'lucide-react';
@@ -150,9 +148,9 @@ const ModalImpulsionarImovel = ({
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
+                            <span className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
                                 Escolha o período de impulsionamento:
-                            </label>
+                            </span>
                             <div className="grid grid-cols-1 gap-2.5">
                                 {PLANOS_IMPULSIONAMENTO.map((plano) => {
                                     const selecionado = planoSelecionado === plano.id;
@@ -251,11 +249,11 @@ const ModalImpulsionarImovel = ({
                             >
                                 <Sparkles size={16} />
                                 <span>
-                                    {carregando
-                                        ? 'Ativando...'
-                                        : ehDestaqueAtivo
-                                        ? `Renovar por ${planoAtual.dias} dias`
-                                        : `Ativar Destaque (${planoAtual.valor})`}
+                                    {(() => {
+                                        if (carregando) return 'Ativando...';
+                                        if (ehDestaqueAtivo) return `Renovar por ${planoAtual.dias} dias`;
+                                        return `Ativar Destaque (${planoAtual.valor})`;
+                                    })()}
                                 </span>
                             </button>
                         </div>

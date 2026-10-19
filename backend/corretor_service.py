@@ -12,6 +12,11 @@ except ImportError:
     from backend.normalizer import normalizar_cidade, normalizar_bairro, normalizar_localizacao
 
 
+PREFIXO_HTTP = "http://"
+PREFIXO_HTTPS = "https://"
+PREFIXOS_WEB = (PREFIXO_HTTP, PREFIXO_HTTPS)
+
+
 def construir_filtro_carteira_corretor(corretor: Dict[str, Any]) -> Dict[str, Any]:
     usuario = (corretor.get("usuario") or "").strip().lower()
     imob = (corretor.get("imobiliaria") or "").strip()
@@ -46,7 +51,7 @@ def _limpar_lista_fotos(fotos: List[str]) -> List[str]:
     vistas = set()
     for url in fotos or []:
         texto = (url or "").strip()
-        if texto.startswith(("http://", "https://")) and texto not in vistas:
+        if texto.startswith(PREFIXOS_WEB) and texto not in vistas:
             vistas.add(texto)
             limpas.append(texto)
     return limpas
@@ -73,7 +78,7 @@ def gerar_link_anuncio_corretor(
     codigo_original: str,
 ) -> str:
     link_ext = (dados.link_externo or "").strip()
-    if link_ext.startswith(("http://", "https://")):
+    if link_ext.startswith(PREFIXOS_WEB):
         return link_ext
 
     whatsapp_bruto = (
@@ -94,7 +99,7 @@ def gerar_link_anuncio_corretor(
         return f"https://wa.me/{digitos}?text={quote(mensagem)}"
 
     site_corretor = (corretor.get("site_externo") or "").strip()
-    if site_corretor.startswith(("http://", "https://")):
+    if site_corretor.startswith(PREFIXOS_WEB):
         return site_corretor
 
     return "#contato-direto"
@@ -112,6 +117,18 @@ def _gerar_codigo_e_id_unico(
     return codigo_limpo, id_unico
 
 
+def _extrair_extras_imovel(dados: SalvarImovelCorretorRequest) -> Dict[str, Any]:
+    subtipo_limpo = (dados.subtipo or "Padrão").strip() or "Padrão"
+    return {
+        "subtipo": subtipo_limpo,
+        "logradouro": (dados.logradouro or "").strip(),
+        "numero": (dados.numero or "").strip(),
+        "suites": int(dados.suites or 0),
+        "salas": int(dados.salas or 0),
+        "atributos": (dados.atributos or "").strip(),
+    }
+
+
 def _extrair_campos_comuns_imovel(
     dados: SalvarImovelCorretorRequest,
     corretor: Dict[str, Any],
@@ -119,7 +136,6 @@ def _extrair_campos_comuns_imovel(
 ) -> Dict[str, Any]:
     cidade_norm = normalizar_cidade(dados.cidade) or "São João del Rei"
     bairro_norm = normalizar_bairro(dados.bairro) or "Centro"
-    subtipo_limpo = (dados.subtipo or "Padrão").strip() or "Padrão"
     nome_imob = (corretor.get("imobiliaria") or corretor.get("nome") or "Corretor Parceiro").strip()
 
     return {
@@ -139,14 +155,7 @@ def _extrair_campos_comuns_imovel(
         "area_total": float(dados.area_total or 0.0),
         "fotos": _limpar_lista_fotos(dados.fotos),
         "link": gerar_link_anuncio_corretor(dados, corretor, codigo_original),
-        "extras": {
-            "subtipo": subtipo_limpo,
-            "logradouro": (dados.logradouro or "").strip(),
-            "numero": (dados.numero or "").strip(),
-            "suites": int(dados.suites or 0),
-            "salas": int(dados.salas or 0),
-            "atributos": (dados.atributos or "").strip(),
-        },
+        "extras": _extrair_extras_imovel(dados),
         "contato_corretor": _montar_contato_corretor(dados, corretor),
         "ativo": bool(dados.ativo),
     }

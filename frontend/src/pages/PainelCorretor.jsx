@@ -196,6 +196,145 @@ const ResumoMetricasCorretor = ({ resumoConta, metricas }) => (
     </div>
 );
 
+const obterClasseCardImovel = (ehExcluido, ehDestaque) => {
+    if (ehExcluido) return 'bg-slate-50/70 border border-dashed border-gray-300 opacity-90';
+    if (ehDestaque) return 'bg-white border-2 border-amber-400/90 shadow-amber-100/50';
+    return 'bg-white border border-gray-200/90 hover:border-blue-200';
+};
+
+const BadgesImovelCarteira = ({ ehExcluido, ehDestaque, ativo, modalidade, tipo, codigo }) => (
+    <div className="flex flex-wrap items-center gap-1.5 mb-1">
+        {ehExcluido ? (
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-200 text-slate-700 border border-slate-300 flex items-center gap-1">
+                <Archive size={11} />
+                <span>Histórico / Arquivado</span>
+            </span>
+        ) : (
+            <>
+                {ehDestaque && (
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-sm flex items-center gap-1">
+                        <Sparkles size={11} />
+                        <span>Em Destaque</span>
+                    </span>
+                )}
+                <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                        ativo
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}
+                >
+                    {ativo ? 'Ativo na Vitrine' : 'Pausado / Inativo'}
+                </span>
+            </>
+        )}
+        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-blue-50 text-blue-700">
+            {modalidade}
+        </span>
+        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-gray-100 text-gray-700">
+            {tipo}
+        </span>
+        <span className="text-[11px] text-gray-400 font-medium">
+            Cód. {codigo}
+        </span>
+    </div>
+);
+
+const AcoesImovelCarteira = ({
+    ehExcluido,
+    ehDestaque,
+    ativo,
+    imovel,
+    onImpulsionar,
+    onEditar,
+    onAlternarStatus,
+    onExcluir,
+    onReativar,
+}) => {
+    if (ehExcluido) {
+        return (
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-200">
+                <button
+                    type="button"
+                    onClick={() => onReativar(imovel)}
+                    title="Reativar este imóvel na vitrine ativa"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all"
+                >
+                    <RotateCcw size={14} />
+                    <span>Reativar Imóvel</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => onEditar(imovel)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-gray-100 text-gray-700 text-xs font-bold border border-gray-200 transition-colors"
+                >
+                    <Pencil size={14} />
+                    <span>Editar</span>
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
+            <button
+                type="button"
+                onClick={() => onImpulsionar(imovel)}
+                title={ehDestaque ? 'Gerenciar destaque ativo' : 'Impulsionar imóvel para o topo'}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                    ehDestaque
+                        ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                        : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white shadow-sm'
+                }`}
+            >
+                <Sparkles size={14} />
+                <span>{ehDestaque ? 'Destaque Ativo' : 'Impulsionar'}</span>
+            </button>
+
+            <button
+                type="button"
+                onClick={() => onEditar(imovel)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors"
+            >
+                <Pencil size={14} />
+                <span>Editar</span>
+            </button>
+
+            <button
+                type="button"
+                onClick={() => onAlternarStatus(imovel)}
+                title={ativo ? 'Pausar exibição do imóvel' : 'Reativar imóvel na vitrine'}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
+                    ativo
+                        ? 'bg-amber-50 hover:bg-amber-100 text-amber-800'
+                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                }`}
+            >
+                <Power size={14} />
+                <span>{ativo ? 'Pausar' : 'Ativar'}</span>
+            </button>
+
+            <Link
+                to={`/imovel/${imovel.id_unico}`}
+                title="Visualizar página pública do imóvel"
+                className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+            >
+                <Eye size={15} />
+            </Link>
+
+            <button
+                type="button"
+                onClick={() => onExcluir(imovel)}
+                title="Mover imóvel para o histórico de arquivados"
+                className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
+            >
+                <Trash2 size={15} />
+            </button>
+        </div>
+    );
+};
+
 const ItemImovelCarteira = ({
     imovel,
     onEditar,
@@ -214,13 +353,10 @@ const ItemImovelCarteira = ({
 
     return (
         <div
-            className={`rounded-2xl p-4 shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-                ehExcluido
-                    ? 'bg-slate-50/70 border border-dashed border-gray-300 opacity-90'
-                    : ehDestaque
-                    ? 'bg-white border-2 border-amber-400/90 shadow-amber-100/50'
-                    : 'bg-white border border-gray-200/90 hover:border-blue-200'
-            }`}
+            className={`rounded-2xl p-4 shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${obterClasseCardImovel(
+                ehExcluido,
+                ehDestaque
+            )}`}
         >
             <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
                 <img
@@ -236,41 +372,14 @@ const ItemImovelCarteira = ({
                 />
 
                 <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                        {ehExcluido ? (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-200 text-slate-700 border border-slate-300 flex items-center gap-1">
-                                <Archive size={11} />
-                                <span>Histórico / Arquivado</span>
-                            </span>
-                        ) : (
-                            <>
-                                {ehDestaque && (
-                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-sm flex items-center gap-1">
-                                        <Sparkles size={11} />
-                                        <span>Em Destaque</span>
-                                    </span>
-                                )}
-                                <span
-                                    className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                                        ativo
-                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                                    }`}
-                                >
-                                    {ativo ? 'Ativo na Vitrine' : 'Pausado / Inativo'}
-                                </span>
-                            </>
-                        )}
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-blue-50 text-blue-700">
-                            {imovel.modalidade}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-gray-100 text-gray-700">
-                            {imovel.tipo}
-                        </span>
-                        <span className="text-[11px] text-gray-400 font-medium">
-                            Cód. {imovel.codigo_original}
-                        </span>
-                    </div>
+                    <BadgesImovelCarteira
+                        ehExcluido={ehExcluido}
+                        ehDestaque={ehDestaque}
+                        ativo={ativo}
+                        modalidade={imovel.modalidade}
+                        tipo={imovel.tipo}
+                        codigo={imovel.codigo_original}
+                    />
 
                     <h3 className="text-sm sm:text-base font-extrabold text-gray-900 truncate">
                         {imovel.titulo}
@@ -304,84 +413,17 @@ const ItemImovelCarteira = ({
                 </div>
             </div>
 
-            {ehExcluido ? (
-                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-200">
-                    <button
-                        type="button"
-                        onClick={() => onReativar(imovel)}
-                        title="Reativar este imóvel na vitrine ativa"
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all"
-                    >
-                        <RotateCcw size={14} />
-                        <span>Reativar Imóvel</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => onEditar(imovel)}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-gray-100 text-gray-700 text-xs font-bold border border-gray-200 transition-colors"
-                    >
-                        <Pencil size={14} />
-                        <span>Editar</span>
-                    </button>
-                </div>
-            ) : (
-                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
-                    <button
-                        type="button"
-                        onClick={() => onImpulsionar(imovel)}
-                        title={ehDestaque ? 'Gerenciar destaque ativo' : 'Impulsionar imóvel para o topo'}
-                        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                            ehDestaque
-                                ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
-                                : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white shadow-sm'
-                        }`}
-                    >
-                        <Sparkles size={14} />
-                        <span>{ehDestaque ? 'Destaque Ativo' : 'Impulsionar'}</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => onEditar(imovel)}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors"
-                    >
-                        <Pencil size={14} />
-                        <span>Editar</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => onAlternarStatus(imovel)}
-                        title={ativo ? 'Pausar exibição do imóvel' : 'Reativar imóvel na vitrine'}
-                        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
-                            ativo
-                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-800'
-                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                        }`}
-                    >
-                        <Power size={14} />
-                        <span>{ativo ? 'Pausar' : 'Ativar'}</span>
-                    </button>
-
-                    <Link
-                        to={`/imovel/${imovel.id_unico}`}
-                        title="Visualizar página pública do imóvel"
-                        className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
-                    >
-                        <Eye size={15} />
-                    </Link>
-
-                    <button
-                        type="button"
-                        onClick={() => onExcluir(imovel)}
-                        title="Mover imóvel para o histórico de arquivados"
-                        className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
-                    >
-                        <Trash2 size={15} />
-                    </button>
-                </div>
-            )}
+            <AcoesImovelCarteira
+                ehExcluido={ehExcluido}
+                ehDestaque={ehDestaque}
+                ativo={ativo}
+                imovel={imovel}
+                onImpulsionar={onImpulsionar}
+                onEditar={onEditar}
+                onAlternarStatus={onAlternarStatus}
+                onExcluir={onExcluir}
+                onReativar={onReativar}
+            />
         </div>
     );
 };

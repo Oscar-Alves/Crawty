@@ -98,22 +98,24 @@ app.add_middleware(
 )
 
 
-def converter_mongo_para_dict(imovel):
+def _converter_destaque_ate(ate: Any) -> Optional[datetime]:
+    if isinstance(ate, str):
+        try:
+            return datetime.fromisoformat(ate.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if isinstance(ate, datetime):
+        return ate.replace(tzinfo=timezone.utc) if ate.tzinfo is None else ate
+    return None
+
+
+def converter_mongo_para_dict(imovel: Dict[str, Any]) -> Dict[str, Any]:
     if "_id" in imovel:
         del imovel["_id"]
     if imovel.get("destaque") and imovel.get("destaque_ate"):
-        agora = datetime.now(timezone.utc)
-        ate = imovel["destaque_ate"]
-        if isinstance(ate, str):
-            try:
-                ate = datetime.fromisoformat(ate.replace("Z", "+00:00"))
-            except ValueError:
-                pass
-        if isinstance(ate, datetime):
-            if ate.tzinfo is None:
-                ate = ate.replace(tzinfo=timezone.utc)
-            if ate < agora:
-                imovel["destaque"] = False
+        ate_dt = _converter_destaque_ate(imovel["destaque_ate"])
+        if ate_dt and ate_dt < datetime.now(timezone.utc):
+            imovel["destaque"] = False
     return imovel
 
 
@@ -1175,13 +1177,14 @@ def alterar_status_imovel_corretor(
 ):
     _obter_imovel_do_corretor_ou_erro(id_unico, corretor_atual)
     agora = datetime.now(timezone.utc)
-    campos_set = {
+    campos_set: Dict[str, Any] = {
         "ativo": bool(dados.ativo),
-        "excluido": False if dados.ativo else False,
-        "removido_em": None if dados.ativo else None,
         "last_updated": agora,
         "descontinuado_em": None if dados.ativo else agora,
     }
+    if dados.ativo:
+        campos_set["excluido"] = False
+        campos_set["removido_em"] = None
     imoveis_collection.update_one(
         {"id_unico": id_unico},
         {"$set": campos_set},
