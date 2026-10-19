@@ -46,8 +46,8 @@ const LoginCorretor = () => {
             const resposta = await loginCorretorApi(usuario.trim(), senha);
             salvarSessaoCorretor(resposta.access_token, resposta.corretor);
             navigate(destinoSeguro, { replace: true });
-        } catch (err) {
-            setErro(err.message || 'Credenciais inválidas. Verifique seu usuário e senha.');
+        } catch (error) {
+            setErro(error.message || 'Credenciais inválidas. Verifique seu usuário e senha.');
         } finally {
             setCarregando(false);
         }

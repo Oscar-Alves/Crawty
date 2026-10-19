@@ -37,19 +37,20 @@ MONGO_REGEX = "$regex"
 MONGO_OPTIONS = "$options"
 MONGO_EXISTS = "$exists"
 
-RESPONSES_500 = {500: {"description": "Erro interno no servidor ou banco desconectado"}}
+DESC_ERRO_500 = "Erro interno no servidor ou banco desconectado"
+RESPONSES_500 = {500: {"description": DESC_ERRO_500}}
 RESPONSES_401_500 = {
     401: {"description": "Não autenticado ou credenciais inválidas"},
-    500: {"description": "Erro interno no servidor ou banco desconectado"},
+    500: {"description": DESC_ERRO_500},
 }
 RESPONSES_400_401_500 = {
     400: {"description": "Dados de entrada inválidos"},
     401: {"description": "Não autenticado ou senha atual incorreta"},
-    500: {"description": "Erro interno no servidor ou banco desconectado"},
+    500: {"description": DESC_ERRO_500},
 }
 RESPONSES_404_500 = {
     404: {"description": ERRO_IMOVEL_NAO_ENCONTRADO},
-    500: {"description": "Erro interno no servidor ou banco desconectado"},
+    500: {"description": DESC_ERRO_500},
 }
 
 app = FastAPI(title="API Imóveis Unificada", version="1.5")
@@ -642,11 +643,7 @@ def _obter_ou_criar_entradas_agregacao(
     return im_entry, b_entry
 
 
-def _processar_documento_estatistica(
-    d: Dict[str, Any],
-    cliques_por_imob: Dict[str, int],
-    estado: Dict[str, Any],
-) -> None:
+def _extrair_campos_doc_estatistica(d: Dict[str, Any]):
     ativo = d.get("ativo") is not False
     mod = (d.get("modalidade") or "VENDA").upper()
     tipo = d.get("tipo") or "Casa"
@@ -656,6 +653,17 @@ def _processar_documento_estatistica(
     preco = float(d.get("preco") or 0.0)
     preco_ant = float(d.get("preco_anterior") or 0.0)
     area = float(d.get("area_util") or d.get("area_total") or 0.0)
+    return ativo, mod, tipo, bairro, cid_doc, imob, preco, preco_ant, area
+
+
+def _processar_documento_estatistica(
+    d: Dict[str, Any],
+    cliques_por_imob: Dict[str, int],
+    estado: Dict[str, Any],
+) -> None:
+    ativo, mod, tipo, bairro, cid_doc, imob, preco, preco_ant, area = (
+        _extrair_campos_doc_estatistica(d)
+    )
 
     im_entry, b_entry = _obter_ou_criar_entradas_agregacao(
         imob, bairro, cid_doc, cliques_por_imob, estado
@@ -673,7 +681,7 @@ def _processar_documento_estatistica(
     if b_entry:
         b_entry["ativos"] += 1
 
-    if preco_ant > 0 and preco > 0 and preco_ant > preco:
+    if 0 < preco < preco_ant:
         estado["total_com_queda"] += 1
 
     t_entry = estado["tipos_agg"].setdefault(

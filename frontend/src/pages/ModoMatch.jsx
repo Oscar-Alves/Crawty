@@ -973,8 +973,8 @@ const ModoMatch = () => {
                     setFilaImoveis(novosItens);
                     setIndiceAtual(0);
                 }
-            } catch (erro) {
-                console.error('Erro ao buscar imóveis para o Modo Match:', erro);
+            } catch (error) {
+                console.error('Erro ao buscar imóveis para o Modo Match:', error);
                 if (!anexar) setFilaImoveis([]);
             } finally {
                 setCarregandoDeck(false);

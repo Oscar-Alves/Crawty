@@ -19,7 +19,7 @@ export const lerIdsMatchesCookie = () => {
     const partes = document.cookie.split(';');
     for (const parte of partes) {
         const [chaveBruta, ...restoValor] = parte.split('=');
-        if (chaveBruta && chaveBruta.trim() === NOME_COOKIE_MATCHES) {
+        if (chaveBruta?.trim() === NOME_COOKIE_MATCHES) {
             const valorBruto = restoValor.join('=').trim();
             if (!valorBruto) return [];
             try {

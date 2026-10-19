@@ -392,9 +392,9 @@ const PainelCorretor = () => {
                     setResumoConta(dados.resumo_conta);
                 }
             })
-            .catch((err) => {
+            .catch((error) => {
                 if (!ativo) return;
-                if (err.status === 401) {
+                if (error.status === 401) {
                     navigate('/corretor/login', { replace: true });
                 }
             })
@@ -431,8 +431,8 @@ const PainelCorretor = () => {
                 atualizarPerfilCorretorLocal(res.corretor);
             }
             exibirFeedback('Dados de contato atualizados com sucesso!');
-        } catch (err) {
-            exibirFeedback('', err.message || 'Erro ao salvar alterações.');
+        } catch (error) {
+            exibirFeedback('', error.message || 'Erro ao salvar alterações.');
         } finally {
             setSalvando(false);
         }
@@ -455,8 +455,8 @@ const PainelCorretor = () => {
             await atualizarPerfilCorretorApi(formSenha);
             setFormSenha({ senha_atual: '', nova_senha: '' });
             exibirFeedback('Senha alterada com sucesso!');
-        } catch (err) {
-            exibirFeedback('', err.message || 'Erro ao alterar a senha.');
+        } catch (error) {
+            exibirFeedback('', error.message || 'Erro ao alterar a senha.');
         } finally {
             setSalvando(false);
         }

@@ -61,10 +61,10 @@ const Estatisticas = () => {
             try {
                 const res = await getEstatisticas(cidadeSelecionada);
                 if (ativo) setDados(res);
-            } catch (err) {
-                console.error(err);
+            } catch (error) {
+                console.error(error);
                 if (!ativo) return;
-                if (err.status === 401) {
+                if (error.status === 401) {
                     navigate("/corretor/login?redirect=/estatisticas", { replace: true });
                     return;
                 }
