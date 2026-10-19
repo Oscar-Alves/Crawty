@@ -17,11 +17,20 @@ class RegistroPreco(BaseModel):
     data: datetime
 
 
+class ContatoCorretorImovel(BaseModel):
+    nome: Optional[str] = ""
+    creci: Optional[str] = ""
+    whatsapp: Optional[str] = ""
+    telefone: Optional[str] = ""
+    email: Optional[str] = ""
+
+
 class Imovel(BaseModel):
     id_unico: str = Field(..., description="ID composto: Imobiliaria_Codigo")
     imobiliaria: str
     codigo_original: str
     titulo: str
+    descricao: Optional[str] = None
     modalidade: str
     tipo: Optional[str] = "Indefinido"
     preco: float
@@ -37,6 +46,8 @@ class Imovel(BaseModel):
     link: str
     fotos: List[str] = []
     extras: Optional[ExtrasImovel] = Field(default_factory=ExtrasImovel)
+    corretor_usuario: Optional[str] = None
+    contato_corretor: Optional[ContatoCorretorImovel] = None
     criado_em: Optional[datetime] = None
     last_updated: Optional[datetime] = None
     ativo: bool = True
@@ -66,3 +77,34 @@ class AtualizarPerfilCorretorRequest(BaseModel):
     site_externo: Optional[str] = Field(default=None, max_length=200)
     senha_atual: Optional[str] = Field(default=None, max_length=128)
     nova_senha: Optional[str] = Field(default=None, min_length=6, max_length=128)
+
+
+class SalvarImovelCorretorRequest(BaseModel):
+    codigo_original: Optional[str] = Field(default="", max_length=40)
+    titulo: str = Field(..., min_length=3, max_length=180)
+    descricao: Optional[str] = Field(default="", max_length=4000)
+    modalidade: str = Field(default="VENDA", pattern="^(VENDA|ALUGUEL)$")
+    tipo: str = Field(default="Casa", max_length=50)
+    subtipo: Optional[str] = Field(default="Padrão", max_length=60)
+    preco: float = Field(..., ge=0)
+    cidade: str = Field(default="São João del Rei", max_length=80)
+    bairro: str = Field(default="Centro", max_length=100)
+    logradouro: Optional[str] = Field(default="", max_length=160)
+    numero: Optional[str] = Field(default="", max_length=30)
+    quartos: int = Field(default=0, ge=0)
+    suites: int = Field(default=0, ge=0)
+    banheiros: int = Field(default=0, ge=0)
+    vagas: int = Field(default=0, ge=0)
+    salas: int = Field(default=0, ge=0)
+    area_util: float = Field(default=0.0, ge=0)
+    area_total: float = Field(default=0.0, ge=0)
+    atributos: Optional[str] = Field(default="", max_length=500)
+    fotos: List[str] = Field(default_factory=list)
+    link_externo: Optional[str] = Field(default="", max_length=500)
+    whatsapp_contato: Optional[str] = Field(default="", max_length=30)
+    telefone_contato: Optional[str] = Field(default="", max_length=30)
+    ativo: bool = True
+
+
+class StatusImovelCorretorRequest(BaseModel):
+    ativo: bool

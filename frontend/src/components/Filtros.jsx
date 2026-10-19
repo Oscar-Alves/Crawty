@@ -74,6 +74,33 @@ const FAIXAS_PRECO_ALUGUEL = [
     { label: '+ de R$ 5.000', min: '5000', max: '' },
 ];
 
+const extrairListaTipos = (valorTipo) =>
+    String(valorTipo || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+const alternarTipoNaString = (valorAtual, tipoClicado) => {
+    const lista = extrairListaTipos(valorAtual);
+    if (lista.includes(tipoClicado)) {
+        return lista.filter((item) => item !== tipoClicado).join(',');
+    }
+    return [...lista, tipoClicado].join(',');
+};
+
+const obterSubtiposDosTipos = (valorTipo, opcoes) => {
+    const lista = extrairListaTipos(valorTipo);
+    if (lista.length === 0) return opcoes.subtipos || [];
+    const conjunto = new Set();
+    for (const t of lista) {
+        const subtipos = opcoes.subtipos_por_tipo?.[t] || [];
+        for (const st of subtipos) {
+            conjunto.add(st);
+        }
+    }
+    return Array.from(conjunto).sort((a, b) => a.localeCompare(b));
+};
+
 const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbertoMobile, totalResultados }) => {
     const [buscaBairro, setBuscaBairro] = useState('');
 
@@ -89,13 +116,13 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
         return base.filter((b) => b.toLowerCase().includes(termo));
     }, [filtros.cidade, opcoes.bairros, opcoes.bairros_por_cidade, buscaBairro]);
 
-    // Lista de subtipos filtrada pelo tipo principal selecionado
-    const subtiposDisponiveis = useMemo(() => {
-        if (filtros.tipo && opcoes.subtipos_por_tipo?.[filtros.tipo]) {
-            return opcoes.subtipos_por_tipo[filtros.tipo];
-        }
-        return opcoes.subtipos || [];
-    }, [filtros.tipo, opcoes.subtipos, opcoes.subtipos_por_tipo]);
+    const tiposSelecionados = useMemo(() => extrairListaTipos(filtros.tipo), [filtros.tipo]);
+
+    // Lista de subtipos filtrada pelos tipos selecionados
+    const subtiposDisponiveis = useMemo(
+        () => obterSubtiposDosTipos(filtros.tipo, opcoes),
+        [filtros.tipo, opcoes]
+    );
 
     const atualizarCampo = (campo, valor) => {
         setFiltros((prev) => {
@@ -111,10 +138,8 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
             }
 
             if (campo === 'tipo') {
-                const subtiposDoNovoTipo = valor
-                    ? opcoes.subtipos_por_tipo?.[valor] || []
-                    : opcoes.subtipos || [];
-                if (prev.subtipo && !subtiposDoNovoTipo.includes(prev.subtipo)) {
+                const subtiposValidos = obterSubtiposDosTipos(valor, opcoes);
+                if (prev.subtipo && !subtiposValidos.includes(prev.subtipo)) {
                     novo.subtipo = '';
                 }
             }
@@ -380,17 +405,20 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
 
             {/* 4. Tipo e Subtipo de Imóvel */}
             <div className="space-y-3 pt-2 border-t border-gray-100">
-                <span className={sectionTitleClass}>
-                    <HomeIcon size={14} className="text-blue-600" />
-                    Tipo de Imóvel
-                </span>
+                <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        <HomeIcon size={14} className="text-blue-600" />
+                        Tipo de Imóvel
+                    </span>
+                    <span className="text-[11px] text-gray-400">Múltipla escolha</span>
+                </div>
 
                 <div className="flex flex-wrap gap-1.5">
                     <button
                         type="button"
                         onClick={() => atualizarCampo('tipo', '')}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                            !filtros.tipo
+                            tiposSelecionados.length === 0
                                 ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                                 : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                         }`}
@@ -398,12 +426,14 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                         Todos
                     </button>
                     {(opcoes.tipos || []).map((t) => {
-                        const ativo = filtros.tipo === t;
+                        const ativo = tiposSelecionados.includes(t);
                         return (
                             <button
                                 key={t}
                                 type="button"
-                                onClick={() => atualizarCampo('tipo', ativo ? '' : t)}
+                                onClick={() =>
+                                    atualizarCampo('tipo', alternarTipoNaString(filtros.tipo, t))
+                                }
                                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                                     ativo
                                         ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
@@ -429,8 +459,8 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                             className={inputClass}
                         >
                             <option value="">
-                                {filtros.tipo
-                                    ? `Todos os subtipos de ${filtros.tipo}`
+                                {tiposSelecionados.length > 0
+                                    ? `Todos os subtipos (${tiposSelecionados.join(' + ')})`
                                     : 'Todos os Subtipos'}
                             </option>
                             {subtiposDisponiveis.map((st) => (

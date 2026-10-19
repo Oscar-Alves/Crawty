@@ -9,7 +9,14 @@ import pymongo
 
 try:
     from database import imoveis_collection, cliques_collection, corretores_collection
-    from models import Imovel, CliqueLeadRequest, LoginCorretorRequest, AtualizarPerfilCorretorRequest
+    from models import (
+        Imovel,
+        CliqueLeadRequest,
+        LoginCorretorRequest,
+        AtualizarPerfilCorretorRequest,
+        SalvarImovelCorretorRequest,
+        StatusImovelCorretorRequest,
+    )
     from auth import (
         gerar_hash_senha,
         verificar_senha,
@@ -17,15 +24,34 @@ try:
         serializar_corretor_publico,
         obter_corretor_atual,
     )
+    from corretor_service import (
+        construir_filtro_carteira_corretor,
+        verificar_permissao_imovel,
+        montar_documento_novo_imovel,
+        montar_atualizacao_imovel,
+    )
 except ImportError:
     from backend.database import imoveis_collection, cliques_collection, corretores_collection
-    from backend.models import Imovel, CliqueLeadRequest, LoginCorretorRequest, AtualizarPerfilCorretorRequest
+    from backend.models import (
+        Imovel,
+        CliqueLeadRequest,
+        LoginCorretorRequest,
+        AtualizarPerfilCorretorRequest,
+        SalvarImovelCorretorRequest,
+        StatusImovelCorretorRequest,
+    )
     from backend.auth import (
         gerar_hash_senha,
         verificar_senha,
         gerar_token_acesso,
         serializar_corretor_publico,
         obter_corretor_atual,
+    )
+    from backend.corretor_service import (
+        construir_filtro_carteira_corretor,
+        verificar_permissao_imovel,
+        montar_documento_novo_imovel,
+        montar_atualizacao_imovel,
     )
 
 ERROR_DB = "Banco não conectado"
@@ -215,13 +241,21 @@ class FiltrosImoveisQuery(BaseModel):
     apenas_queda_preco: Optional[bool] = None
     ordenar_por: Optional[str] = Field(
         None,
-        pattern="^(menor_preco|maior_preco|maior_area|menor_area|recentes?)$",
+        pattern="^(menor_preco|maior_preco|maior_area|menor_area|recentes?|preco_asc|area_desc)$",
     )
     status: str = Field("ativos", pattern="^(ativos|descontinuados|todos)$")
 
 
 def _regex_exato(valor: str) -> Dict[str, str]:
     return {MONGO_REGEX: f"^{re.escape(valor.strip())}$", MONGO_OPTIONS: "i"}
+
+
+def _regex_lista_exata(valor: str) -> Dict[str, str]:
+    itens = [re.escape(item.strip()) for item in valor.split(",") if item.strip()]
+    if not itens:
+        return _regex_exato(valor)
+    padrao = "|".join(itens)
+    return {MONGO_REGEX: f"^({padrao})$", MONGO_OPTIONS: "i"}
 
 
 def _adicionar_filtros_texto(params: FiltrosImoveisQuery, conds: List[Dict[str, Any]]) -> None:
@@ -242,13 +276,19 @@ def _adicionar_filtros_texto(params: FiltrosImoveisQuery, conds: List[Dict[str, 
     mapeamento_exato = (
         ("cidade", params.cidade),
         ("bairro", params.bairro),
-        ("tipo", params.tipo),
-        ("extras.subtipo", params.subtipo),
         ("imobiliaria", params.imobiliaria),
     )
     for campo, valor in mapeamento_exato:
         if valor:
             conds.append({campo: _regex_exato(valor)})
+
+    mapeamento_multiplo = (
+        ("tipo", params.tipo),
+        ("extras.subtipo", params.subtipo),
+    )
+    for campo, valor in mapeamento_multiplo:
+        if valor:
+            conds.append({campo: _regex_lista_exata(valor)})
 
     if params.modalidade:
         conds.append({"modalidade": params.modalidade.strip().upper()})
@@ -270,7 +310,7 @@ def _adicionar_filtros_quantitativos(
 
 def _adicionar_filtro_preco(params: FiltrosImoveisQuery, conds: List[Dict[str, Any]]) -> None:
     if params.preco_min is None and params.preco_max is None:
-        if params.ordenar_por == "menor_preco":
+        if params.ordenar_por in ("menor_preco", "preco_asc"):
             conds.append({"preco": {"$gt": 0}})
         return
 
@@ -330,8 +370,10 @@ def _construir_query_imoveis(params: FiltrosImoveisQuery) -> Dict[str, Any]:
 
 SORT_CRITERIA_MAP = {
     "menor_preco": [("preco", pymongo.ASCENDING)],
+    "preco_asc": [("preco", pymongo.ASCENDING)],
     "maior_preco": [("preco", pymongo.DESCENDING)],
     "maior_area": [("area_util", pymongo.DESCENDING), ("area_total", pymongo.DESCENDING)],
+    "area_desc": [("area_util", pymongo.DESCENDING), ("area_total", pymongo.DESCENDING)],
     "menor_area": [("area_util", pymongo.ASCENDING), ("area_total", pymongo.ASCENDING)],
     "recente": [("criado_em", pymongo.DESCENDING), ("last_updated", pymongo.DESCENDING)],
     "recentes": [("criado_em", pymongo.DESCENDING), ("last_updated", pymongo.DESCENDING)],
@@ -994,6 +1036,124 @@ def atualizar_perfil_corretor(
         "mensagem": "Perfil atualizado com sucesso.",
         "corretor": serializar_corretor_publico(doc_atualizado),
     }
+
+
+RESPONSES_CORRETOR_IMOVEL = {
+    400: {"description": "Dados inválidos ou código já existente"},
+    401: {"description": "Não autenticado"},
+    403: {"description": "Sem permissão para alterar este imóvel"},
+    404: {"description": ERRO_IMOVEL_NAO_ENCONTRADO},
+    500: {"description": DESC_ERRO_500},
+}
+
+
+def _obter_imovel_do_corretor_ou_erro(id_unico: str, corretor_atual: Dict[str, Any]) -> Dict[str, Any]:
+    if imoveis_collection is None:
+        raise HTTPException(status_code=500, detail=ERROR_DB)
+    doc = imoveis_collection.find_one({"id_unico": id_unico})
+    if not doc:
+        raise HTTPException(status_code=404, detail=ERRO_IMOVEL_NAO_ENCONTRADO)
+    if not verificar_permissao_imovel(doc, corretor_atual):
+        raise HTTPException(
+            status_code=403,
+            detail="Você não tem permissão para modificar este imóvel.",
+        )
+    return doc
+
+
+@app.get("/corretor/imoveis", responses=RESPONSES_401_500)
+def listar_meus_imoveis(
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    if imoveis_collection is None:
+        raise HTTPException(status_code=500, detail=ERROR_DB)
+
+    filtro = construir_filtro_carteira_corretor(corretor_atual)
+    cursor = imoveis_collection.find(filtro, {"_id": 0}).sort(
+        [("ativo", pymongo.DESCENDING), ("last_updated", pymongo.DESCENDING)]
+    )
+    lista = list(cursor)
+    return {
+        "total": len(lista),
+        "data": lista,
+    }
+
+
+@app.post("/corretor/imoveis", responses=RESPONSES_CORRETOR_IMOVEL)
+def cadastrar_imovel_corretor(
+    dados: SalvarImovelCorretorRequest,
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    if imoveis_collection is None:
+        raise HTTPException(status_code=500, detail=ERROR_DB)
+
+    novo_doc = montar_documento_novo_imovel(dados, corretor_atual)
+    if imoveis_collection.find_one({"id_unico": novo_doc["id_unico"]}):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Já existe um imóvel cadastrado com o código '{novo_doc['codigo_original']}'.",
+        )
+
+    imoveis_collection.insert_one(novo_doc)
+    converter_mongo_para_dict(novo_doc)
+    return {
+        "mensagem": "Imóvel cadastrado com sucesso!",
+        "imovel": novo_doc,
+    }
+
+
+@app.put("/corretor/imoveis/{id_unico}", responses=RESPONSES_CORRETOR_IMOVEL)
+def editar_imovel_corretor(
+    id_unico: str,
+    dados: SalvarImovelCorretorRequest,
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    doc_existente = _obter_imovel_do_corretor_ou_erro(id_unico, corretor_atual)
+    campos_atualizados = montar_atualizacao_imovel(doc_existente, dados, corretor_atual)
+
+    imoveis_collection.update_one(
+        {"id_unico": id_unico},
+        {"$set": campos_atualizados},
+    )
+    doc_final = imoveis_collection.find_one({"id_unico": id_unico}, {"_id": 0})
+    return {
+        "mensagem": "Imóvel atualizado com sucesso!",
+        "imovel": doc_final,
+    }
+
+
+@app.patch("/corretor/imoveis/{id_unico}/status", responses=RESPONSES_CORRETOR_IMOVEL)
+def alterar_status_imovel_corretor(
+    id_unico: str,
+    dados: StatusImovelCorretorRequest,
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    _obter_imovel_do_corretor_ou_erro(id_unico, corretor_atual)
+    agora = datetime.now(timezone.utc)
+    campos_set = {
+        "ativo": bool(dados.ativo),
+        "last_updated": agora,
+        "descontinuado_em": None if dados.ativo else agora,
+    }
+    imoveis_collection.update_one(
+        {"id_unico": id_unico},
+        {"$set": campos_set},
+    )
+    doc_final = imoveis_collection.find_one({"id_unico": id_unico}, {"_id": 0})
+    return {
+        "mensagem": "Status do imóvel atualizado com sucesso!",
+        "imovel": doc_final,
+    }
+
+
+@app.delete("/corretor/imoveis/{id_unico}", responses=RESPONSES_CORRETOR_IMOVEL)
+def excluir_imovel_corretor(
+    id_unico: str,
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    _obter_imovel_do_corretor_ou_erro(id_unico, corretor_atual)
+    imoveis_collection.delete_one({"id_unico": id_unico})
+    return {"mensagem": "Imóvel excluído permanentemente da sua carteira."}
 
 
 if __name__ == "__main__":

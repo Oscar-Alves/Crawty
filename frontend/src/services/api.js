@@ -131,3 +131,79 @@ export const atualizarPerfilCorretorApi = async (payload) => {
     }
     return dados;
 };
+
+const validarIdUnicoUrl = (idUnico) => {
+    const limpo = String(idUnico || "").trim();
+    if (!/^[\w-]+$/.test(limpo)) {
+        throw new Error("Identificador de imóvel inválido.");
+    }
+    return encodeURIComponent(limpo);
+};
+
+export const listarMeusImoveisCorretorApi = async () => {
+    const response = await fetch(`${API_URL}/corretor/imoveis`, {
+        headers: montarHeadersAutenticados(false),
+    });
+    if (response.status === 401) {
+        encerrarSessaoCorretor();
+        const erroAuth = new Error("Sessão expirada.");
+        erroAuth.status = 401;
+        throw erroAuth;
+    }
+    if (!response.ok) throw new Error("Erro ao carregar sua carteira de imóveis.");
+    return await response.json();
+};
+
+export const cadastrarImovelCorretorApi = async (payload) => {
+    const response = await fetch(`${API_URL}/corretor/imoveis`, {
+        method: "POST",
+        headers: montarHeadersAutenticados(true),
+        body: JSON.stringify(payload),
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(dados.detail || "Não foi possível cadastrar o imóvel.");
+    }
+    return dados;
+};
+
+export const editarImovelCorretorApi = async (idUnico, payload) => {
+    const idSeguro = validarIdUnicoUrl(idUnico);
+    const response = await fetch(`${API_URL}/corretor/imoveis/${idSeguro}`, {
+        method: "PUT",
+        headers: montarHeadersAutenticados(true),
+        body: JSON.stringify(payload),
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(dados.detail || "Não foi possível atualizar o imóvel.");
+    }
+    return dados;
+};
+
+export const alterarStatusImovelCorretorApi = async (idUnico, ativo) => {
+    const idSeguro = validarIdUnicoUrl(idUnico);
+    const response = await fetch(`${API_URL}/corretor/imoveis/${idSeguro}/status`, {
+        method: "PATCH",
+        headers: montarHeadersAutenticados(true),
+        body: JSON.stringify({ ativo: Boolean(ativo) }),
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(dados.detail || "Não foi possível alterar o status do imóvel.");
+    }
+    return dados;
+};
+
+export const excluirImovelCorretorApi = async (idUnico) => {
+    const idSeguro = validarIdUnicoUrl(idUnico);
+    const response = await fetch(`${API_URL}/corretor/imoveis/${idSeguro}`, {
+        method: "DELETE",
+        headers: montarHeadersAutenticados(false),
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(dados.detail || "Não foi possível excluir o imóvel.");
+    }
+    return dados;
+};

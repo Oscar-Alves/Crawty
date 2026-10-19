@@ -14,6 +14,9 @@ import {
     Check,
     TrendingDown,
     History,
+    Phone,
+    Mail,
+    Award,
 } from 'lucide-react';
 
 const formatarMoeda = (valor) => {
@@ -25,9 +28,20 @@ const formatarMoeda = (valor) => {
 };
 
 const construirLinkRastreado = (urlOriginal) => {
-    if (!urlOriginal) return '#';
+    if (!urlOriginal || urlOriginal.startsWith('#')) return '#';
+    if (urlOriginal.includes('wa.me/')) return urlOriginal;
     const separador = urlOriginal.includes('?') ? '&' : '?';
     return `${urlOriginal}${separador}utm_source=hubimoveis&utm_medium=portal`;
+};
+
+const montarLinkWhatsappDireto = (whatsappBruto, imovel) => {
+    const digitos = String(whatsappBruto || '').replaceAll(/\D/g, '');
+    if (digitos.length < 10) return '';
+    const ddiDigitos = digitos.length <= 11 ? `55${digitos}` : digitos;
+    const texto = encodeURIComponent(
+        `Olá! Vi o imóvel "${imovel.titulo}" (Cód. ${imovel.codigo_original}) no HubImóveis e gostaria de mais informações.`
+    );
+    return `https://wa.me/${ddiDigitos}?text=${texto}`;
 };
 
 const formatarEnderecoCompleto = (imovel) => {
@@ -302,6 +316,17 @@ const DetalhesImovel = () => {
                             </div>
                         </div>
 
+                        {imovel.descricao && (
+                            <div className="mb-6">
+                                <h3 className="text-base font-bold text-gray-900 mb-2">
+                                    Descrição do Imóvel
+                                </h3>
+                                <p className="text-sm text-gray-600 whitespace-pre-line leading-relaxed">
+                                    {imovel.descricao}
+                                </p>
+                            </div>
+                        )}
+
                         <h3 className="text-base font-bold text-gray-900 mb-3">
                             Diferenciais e Informações Adicionais
                         </h3>
@@ -341,21 +366,12 @@ const DetalhesImovel = () => {
                                 {formatarMoeda(imovel.preco)}
                             </p>
 
-                            {imovel.ativo === false ? (
-                                <div className="block w-full bg-amber-50 text-amber-800 text-center font-medium py-3 rounded-xl mb-3 border border-amber-200 text-sm">
-                                    ⚠️ Imóvel retirado do ar pela imobiliária
-                                </div>
-                            ) : (
-                                <a
-                                    href={construirLinkRastreado(imovel.link)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={() => registrarCliqueLead(imovel.id_unico, 'detalhes')}
-                                    className="block w-full bg-emerald-600 hover:bg-emerald-700 text-white text-center font-bold py-4 rounded-xl transition-all shadow-md hover:shadow-lg mb-3"
-                                >
-                                    Ver no site da {imovel.imobiliaria}
-                                </a>
-                            )}
+                            <CartaoContatoCorretor
+                                contato={imovel.contato_corretor}
+                                imobiliaria={imovel.imobiliaria}
+                            />
+
+                            <BotoesAcaoImovel imovel={imovel} />
 
                             <button
                                 type="button"
@@ -376,7 +392,7 @@ const DetalhesImovel = () => {
 
                         <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                             <p className="text-sm text-blue-800 font-medium">
-                                💡 <strong>Dica:</strong> Ao entrar em contato com a{' '}
+                                💡 <strong>Dica:</strong> Ao entrar em contato com{' '}
                                 <strong>{imovel.imobiliaria}</strong>, informe o código{' '}
                                 <strong>{imovel.codigo_original}</strong>.
                             </p>
@@ -384,6 +400,90 @@ const DetalhesImovel = () => {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+};
+
+const CartaoContatoCorretor = ({ contato, imobiliaria }) => {
+    if (!contato) return null;
+
+    return (
+        <div className="mb-5 p-3.5 rounded-xl bg-gray-50 border border-gray-200/80 space-y-1.5 text-xs text-gray-700">
+            <div className="font-bold text-gray-900 flex items-center justify-between">
+                <span>{contato.nome || imobiliaria}</span>
+                {contato.creci && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-extrabold">
+                        <Award size={11} />
+                        CRECI {contato.creci}
+                    </span>
+                )}
+            </div>
+            {contato.whatsapp && (
+                <p className="flex items-center gap-1.5 text-gray-600">
+                    <Phone size={13} className="text-emerald-600" />
+                    <span>WhatsApp: {contato.whatsapp}</span>
+                </p>
+            )}
+            {contato.telefone && (
+                <p className="flex items-center gap-1.5 text-gray-600">
+                    <Phone size={13} className="text-blue-600" />
+                    <span>Tel: {contato.telefone}</span>
+                </p>
+            )}
+            {contato.email && (
+                <p className="flex items-center gap-1.5 text-gray-600 truncate">
+                    <Mail size={13} className="text-blue-600" />
+                    <span>{contato.email}</span>
+                </p>
+            )}
+        </div>
+    );
+};
+
+const BotoesAcaoImovel = ({ imovel }) => {
+    if (imovel.ativo === false) {
+        return (
+            <div className="block w-full bg-amber-50 text-amber-800 text-center font-medium py-3 rounded-xl mb-3 border border-amber-200 text-sm">
+                ⚠️ Imóvel retirado do ar pelo anunciante
+            </div>
+        );
+    }
+
+    const linkPrincipal = imovel.link || '';
+    const ehLinkWhatsapp = linkPrincipal.includes('wa.me/');
+    const linkWhatsappExtra =
+        !ehLinkWhatsapp && imovel.contato_corretor?.whatsapp
+            ? montarLinkWhatsappDireto(imovel.contato_corretor.whatsapp, imovel)
+            : '';
+
+    return (
+        <div className="space-y-2.5 mb-3">
+            {linkPrincipal && !linkPrincipal.startsWith('#') && (
+                <a
+                    href={construirLinkRastreado(linkPrincipal)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => registrarCliqueLead(imovel.id_unico, 'detalhes')}
+                    className="block w-full bg-emerald-600 hover:bg-emerald-700 text-white text-center font-bold py-4 rounded-xl transition-all shadow-md hover:shadow-lg"
+                >
+                    {ehLinkWhatsapp
+                        ? `Falar no WhatsApp com ${imovel.imobiliaria}`
+                        : `Ver no site da ${imovel.imobiliaria}`}
+                </a>
+            )}
+
+            {linkWhatsappExtra && (
+                <a
+                    href={linkWhatsappExtra}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => registrarCliqueLead(imovel.id_unico, 'whatsapp')}
+                    className="flex items-center justify-center gap-2 w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold py-3 rounded-xl transition-all text-sm"
+                >
+                    <Phone size={16} />
+                    <span>Chamar no WhatsApp</span>
+                </a>
+            )}
         </div>
     );
 };

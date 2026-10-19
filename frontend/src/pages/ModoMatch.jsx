@@ -302,9 +302,11 @@ const TelaPreferenciasMatch = ({
 
                 {/* Tipo de Imóvel */}
                 <div>
-                    <span className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2.5">
-                        3. Tipo de Imóvel
-                    </span>
+                    <div className="flex items-center justify-between mb-2.5">
+                        <span className="block text-xs font-bold uppercase tracking-wider text-gray-500">
+                            3. Tipo de Imóvel (pode escolher mais de um)
+                        </span>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                         <button
                             type="button"
@@ -318,15 +320,25 @@ const TelaPreferenciasMatch = ({
                             Todos os tipos
                         </button>
                         {tiposDisponiveis.map((tipoItem) => {
-                            const selecionado = preferencias.tipo === tipoItem;
+                            const listaTipos = String(preferencias.tipo || '')
+                                .split(',')
+                                .map((item) => item.trim())
+                                .filter(Boolean);
+                            const selecionado = listaTipos.includes(tipoItem);
                             const classeChip = selecionado
                                 ? 'bg-rose-600 text-white border-rose-600 font-bold shadow-sm'
                                 : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 font-medium';
+                            const alternarTipoMatch = () => {
+                                const novaLista = selecionado
+                                    ? listaTipos.filter((item) => item !== tipoItem)
+                                    : [...listaTipos, tipoItem];
+                                onAtualizarCampo('tipo', novaLista.join(','));
+                            };
                             return (
                                 <button
                                     key={tipoItem}
                                     type="button"
-                                    onClick={() => onAtualizarCampo('tipo', tipoItem)}
+                                    onClick={alternarTipoMatch}
                                     className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm border transition-all ${classeChip}`}
                                 >
                                     {tipoItem}

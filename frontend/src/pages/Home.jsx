@@ -45,7 +45,7 @@ const construirChipsFiltrosAtivos = (filtros) => {
         ['busca', (v) => `"${v}"`],
         ['cidade', (v) => v],
         ['bairro', (v) => `Bairro: ${v}`],
-        ['tipo', (v) => v],
+        ['tipo', (v) => String(v).split(',').join(' + ')],
         ['subtipo', (v) => v],
         ['imobiliaria', (v) => v],
         ['preco_min', (v) => `Mín R$ ${Number(v).toLocaleString('pt-BR')}`],
