@@ -1,6 +1,6 @@
-# Crawty 🏠
+# Crawty (HubImóveis) 🏠
 
-Um software web completo para capturar, catalogar e exibir um compilado de imóveis das imobiliárias de São João del Rei e região.
+Uma plataforma web completa para capturar, catalogar, analisar e exibir um compilado de imóveis das imobiliárias e corretores parceiros de São João del Rei e região.
 
 - 🌐 **Frontend (Vercel)**: [https://crawty-8dlt.vercel.app](https://crawty-8dlt.vercel.app)
 - ⚙️ **Backend API (Google Cloud Run)**: [https://crawty-api-808358144730.us-central1.run.app](https://crawty-api-808358144730.us-central1.run.app)
@@ -8,24 +8,112 @@ Um software web completo para capturar, catalogar e exibir um compilado de imóv
 
 ---
 
+## ✨ Principais Funcionalidades
+
+1. **Busca Centralizada e Monitoramento de Preços (`/`)**:
+   - Filtros combinados por modalidade (Venda/Aluguel), cidade, bairro, tipo/subtipo, faixa de preço, área útil, quartos, suítes, banheiros e vagas.
+   - Rastreamento automático de histórico de preços (`historico_precos`) com selo de **Oportunidade / Queda de Preço** para imóveis que tiveram redução de valor.
+   - Contabilização de cliques e geração de leads qualificados (`/leads/clique`) ao redirecionar o cliente para a imobiliária ou corretor.
+
+2. **Modo Match — Descoberta Estilo "Tinder" (`/match`)**:
+   - Experiência interativa onde o usuário define primeiro suas **Preferências de Perfil** (objetivo, cidade, bairro, tipo de imóvel, orçamento máximo e quartos mínimos) e, em seguida, navega por uma fila de cards visuais.
+   - Galeria rápida de fotos integrada ao card e suporte a atalhos de teclado (`←` para passar e `→` para dar Match).
+   - **Persistência em Cookies (`crawty_matches`)**: Todos os imóveis marcados com *Match!* ficam salvos nos cookies do navegador do usuário para consulta em acessos futuros, com opção de visitar o anúncio na imobiliária ou excluir matches individualmente.
+
+3. **Portal B2B — Área do Corretor e Imobiliárias Parceiras (`/corretor/login` e `/corretor`)**:
+   - Acesso fechado e exclusivo para corretores autônomos e imobiliárias credenciadas mediante contrato.
+   - Painel do parceiro com métricas da carteira (imóveis ativos, histórico e total de cliques/leads recebidos).
+   - Edição de **Dados Comerciais e Contato Direto** (Nome, Registro CRECI, WhatsApp para leads, Telefone, E-mail e Site/Instagram), permitindo que pequenos corretores divulguem seus imóveis mesmo sem possuir site próprio.
+
+4. **Inteligência de Mercado Exclusiva (`/estatisticas`)**:
+   - Painel analítico **restrito a corretores autenticados** (oculto para visitantes comuns e protegido via Bearer Token na API).
+   - Indicadores estratégicos em tempo real: valor médio do $\text{m}^2$ de venda e locação por bairro, ticket médio e mediana, taxa de absorção de estoque, distribuição por faixas de preço e *market share* por imobiliária.
+
+---
+
 ## 📋 Arquitetura do Sistema
 
 ```
 Crawty/
-├── backend/               # API FastAPI e conexão com MongoDB
-│   ├── api.py            # Endpoints REST (/imoveis, /filtros, etc.)
-│   ├── database.py       # Inicialização e pool do MongoDB
-│   └── models.py         # Schemas e validação com Pydantic
-├── crawlers/              # Módulos de captura das imobiliárias
-│   ├── base_homeclix.py  # Base para portais Homeclix (API REST)
+├── backend/                  # API FastAPI, Segurança B2B e conexão com MongoDB
+│   ├── api.py               # Endpoints REST (/imoveis, /filtros, /estatisticas, /auth/*)
+│   ├── auth.py              # Hash PBKDF2-SHA256, Tokens HMAC-SHA256 e proteção de rotas
+│   ├── database.py          # Inicialização e índices do MongoDB (imoveis, cliques, corretores)
+│   ├── models.py            # Schemas e validação com Pydantic
+│   └── normalizer.py        # Padronização de cidades, bairros, tipos e subtipos
+├── crawlers/                 # Módulos de captura das imobiliárias
+│   ├── base_homeclix.py     # Base para portais Homeclix (API REST)
 │   ├── zanfer.py, chaves.py, flavio.py, lider.py, krasis.py, ...
-│   └── domicilium.py     # Scraper concorrente Domicilium
-├── dados_imoveis/         # Saída JSON individual por crawler
-├── frontend/              # Interface Web (React + Vite + Tailwind CSS)
-├── Dockerfile             # Containerização do Backend para Cloud Run
-├── credentials.env        # Credenciais locais do MongoDB (não versionar)
-├── main.py                # Execução concorrente dos crawlers
-└── loader_mongo.py        # Carga seletiva/interativa para o MongoDB
+│   └── domicilium.py        # Scraper concorrente Domicilium
+├── dados_imoveis/            # Saída JSON individual por crawler (ignorado no Git)
+├── frontend/                 # Interface Web (React + Vite + Tailwind CSS)
+│   └── src/
+│       ├── pages/           # Home, DetalhesImovel, ModoMatch, LoginCorretor, PainelCorretor, Estatisticas
+│       └── utils/           # Persistência de cookies do Modo Match e sessão B2B do corretor
+├── Dockerfile                # Containerização do Backend para Cloud Run
+├── credentials.env           # Credenciais locais do MongoDB (não versionado)
+├── main.py                   # Execução concorrente dos crawlers
+├── loader_mongo.py           # Carga seletiva/interativa para o MongoDB
+└── gerenciar_corretores.py   # CLI administrativa para criar e gerenciar contas de corretores
+```
+
+---
+
+## 🔐 Gestão de Contas de Corretores (`gerenciar_corretores.py`)
+
+O acesso à **Área do Corretor** (`/corretor`) e ao painel de **Inteligência de Mercado** (`/estatisticas`) não possui auto-cadastro público: as contas são criadas e gerenciadas pela administração da plataforma através do utilitário de linha de comando [`gerenciar_corretores.py`](file:///c:/UFSJ/Crawty/gerenciar_corretores.py).
+
+### 1. Criar um novo corretor ou imobiliária parceira (`criar`)
+```bash
+python gerenciar_corretores.py criar \
+  --usuario "joao.corretor" \
+  --senha "SenhaSegura123" \
+  --nome "João Silva" \
+  --imobiliaria "João Silva Consultoria Imobiliária" \
+  --creci "MG-54321" \
+  --whatsapp "(32) 99999-8888" \
+  --telefone "(32) 3371-0000" \
+  --email "contato@joaosilvaimoveis.com.br" \
+  --site "https://instagram.com/joaosilvaimoveis" \
+  --role corretor \
+  --creditos 5
+```
+
+**Parâmetros disponíveis no comando `criar`:**
+| Parâmetro | Obrigatório | Descrição |
+| :--- | :---: | :--- |
+| `--usuario` | **Sim** | Login único do parceiro (convertido automaticamente para minúsculas). |
+| `--senha` | **Sim** | Senha inicial de acesso (armazenada com hash `PBKDF2-HMAC-SHA256`). |
+| `--nome` | **Sim** | Nome completo do corretor ou responsável pela conta. |
+| `--imobiliaria` | Não | Nome comercial da imobiliária ou marca do corretor autônomo (se omitido, usa `--nome`). |
+| `--creci` | Não | Número do registro CRECI (ex: `MG-12345`). |
+| `--whatsapp` | Não | Número de WhatsApp para recebimento direto de leads. |
+| `--telefone` | Não | Telefone fixo ou secundário. |
+| `--email` | Não | E-mail comercial de contato. |
+| `--site` | Não | Link externo para site ou perfil de rede social. |
+| `--role` | Não | Perfil da conta: `corretor` (padrão) ou `admin`. |
+| `--creditos` | Não | Quantidade inicial de créditos de impulsionamento/destaque (padrão: `0`). |
+
+### 2. Listar todos os corretores cadastrados (`listar`)
+Exibe uma tabela no terminal com o login, nome do responsável, imobiliária/marca, perfil (`role`) e status atual (`ATIVO` ou `SUSPENSO`):
+```bash
+python gerenciar_corretores.py listar
+```
+
+### 3. Redefinir a senha de um corretor (`alterar-senha`)
+Caso o parceiro esqueça a senha, você pode definir uma nova senha imediatamente:
+```bash
+python gerenciar_corretores.py alterar-senha --usuario "joao.corretor" --senha "NovaSenha456"
+```
+
+### 4. Suspender ou reativar o acesso de um corretor (`status`)
+Se um contrato for encerrado ou estiver pendente de renovação, você pode suspender (ou reativar) o acesso sem apagar os dados da conta:
+```bash
+# Suspender acesso (bloqueia login e invalida o token atual imediatamente)
+python gerenciar_corretores.py status --usuario "joao.corretor" --ativo false
+
+# Reativar acesso
+python gerenciar_corretores.py status --usuario "joao.corretor" --ativo true
 ```
 
 ---

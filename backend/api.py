@@ -1,18 +1,32 @@
 import re
 from datetime import datetime, timezone
 from typing import Optional, Annotated, Dict, Any, List
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
 import pymongo
 
 try:
-    from database import imoveis_collection, cliques_collection
-    from models import Imovel, CliqueLeadRequest
+    from database import imoveis_collection, cliques_collection, corretores_collection
+    from models import Imovel, CliqueLeadRequest, LoginCorretorRequest, AtualizarPerfilCorretorRequest
+    from auth import (
+        gerar_hash_senha,
+        verificar_senha,
+        gerar_token_acesso,
+        serializar_corretor_publico,
+        obter_corretor_atual,
+    )
 except ImportError:
-    from backend.database import imoveis_collection, cliques_collection
-    from backend.models import Imovel, CliqueLeadRequest
+    from backend.database import imoveis_collection, cliques_collection, corretores_collection
+    from backend.models import Imovel, CliqueLeadRequest, LoginCorretorRequest, AtualizarPerfilCorretorRequest
+    from backend.auth import (
+        gerar_hash_senha,
+        verificar_senha,
+        gerar_token_acesso,
+        serializar_corretor_publico,
+        obter_corretor_atual,
+    )
 
 ERROR_DB = "Banco não conectado"
 ERRO_IMOVEL_NAO_ENCONTRADO = "Imóvel não encontrado"
@@ -24,12 +38,21 @@ MONGO_OPTIONS = "$options"
 MONGO_EXISTS = "$exists"
 
 RESPONSES_500 = {500: {"description": "Erro interno no servidor ou banco desconectado"}}
+RESPONSES_401_500 = {
+    401: {"description": "Não autenticado ou credenciais inválidas"},
+    500: {"description": "Erro interno no servidor ou banco desconectado"},
+}
+RESPONSES_400_401_500 = {
+    400: {"description": "Dados de entrada inválidos"},
+    401: {"description": "Não autenticado ou senha atual incorreta"},
+    500: {"description": "Erro interno no servidor ou banco desconectado"},
+}
 RESPONSES_404_500 = {
     404: {"description": ERRO_IMOVEL_NAO_ENCONTRADO},
     500: {"description": "Erro interno no servidor ou banco desconectado"},
 }
 
-app = FastAPI(title="API Imóveis Unificada", version="1.4")
+app = FastAPI(title="API Imóveis Unificada", version="1.5")
 
 app.add_middleware(
     CORSMiddleware,
@@ -728,12 +751,15 @@ def _formatar_listas_estatisticas(estado: Dict[str, Any]):
     return lista_tipos, lista_bairros, lista_imobiliarias
 
 
-@app.get("/estatisticas", responses=RESPONSES_500)
-def obter_estatisticas_mercado(cidade: Optional[str] = None):
+@app.get("/estatisticas", responses=RESPONSES_401_500)
+def obter_estatisticas_mercado(
+    _corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+    cidade: Optional[str] = None,
+):
     """
     Agrega indicadores de inteligência de mercado (estoque ativo vs. absorvido,
     ticket médio, R$/m² por bairro e tipo, distribuição por faixa de preço e
-    market share por imobiliária).
+    market share por imobiliária). Uso exclusivo para corretores autenticados.
     """
     if imoveis_collection is None:
         raise HTTPException(status_code=500, detail=ERROR_DB)
@@ -832,6 +858,133 @@ def obter_estatisticas_mercado(cidade: Optional[str] = None):
             {"faixa": f["faixa"], "quantidade": f["quantidade"]}
             for f in estado["faixas_aluguel"]
         ],
+    }
+
+
+def _calcular_resumo_parceiro(nome_imobiliaria: str) -> Dict[str, int]:
+    if imoveis_collection is None or not nome_imobiliaria:
+        return {"imoveis_ativos": 0, "imoveis_inativos": 0, "cliques_totais": 0}
+
+    padrao_imob = f"^{re.escape(nome_imobiliaria.strip())}$"
+    docs = list(
+        imoveis_collection.find(
+            {"imobiliaria": {MONGO_REGEX: padrao_imob, MONGO_OPTIONS: "i"}},
+            {"ativo": 1, "cliques": 1, "_id": 0},
+        )
+    )
+    ativos = sum(1 for d in docs if d.get("ativo") is not False)
+    inativos = len(docs) - ativos
+    cliques_imoveis = sum(int(d.get("cliques") or 0) for d in docs)
+
+    cliques_log = 0
+    if cliques_collection is not None:
+        cliques_log = cliques_collection.count_documents(
+            {"imobiliaria": {MONGO_REGEX: padrao_imob, MONGO_OPTIONS: "i"}}
+        )
+
+    return {
+        "imoveis_ativos": ativos,
+        "imoveis_inativos": inativos,
+        "cliques_totais": max(cliques_imoveis, cliques_log),
+    }
+
+
+@app.post("/auth/login", responses=RESPONSES_401_500)
+def login_corretor(credenciais: LoginCorretorRequest):
+    if corretores_collection is None:
+        raise HTTPException(status_code=500, detail=ERROR_DB)
+
+    usuario_limpo = credenciais.usuario.strip().lower()
+    doc = corretores_collection.find_one({"usuario": usuario_limpo})
+
+    if not doc or not verificar_senha(credenciais.senha, doc.get("senha_hash", "")):
+        raise HTTPException(
+            status_code=401,
+            detail="Usuário ou senha incorretos.",
+        )
+
+    if doc.get("ativo") is False:
+        raise HTTPException(
+            status_code=401,
+            detail="Sua conta está temporariamente suspensa. Entre em contato com o suporte.",
+        )
+
+    agora = datetime.now(timezone.utc)
+    corretores_collection.update_one(
+        {"_id": doc["_id"]},
+        {"$set": {"ultimo_login": agora}},
+    )
+    doc["ultimo_login"] = agora
+
+    token = gerar_token_acesso(doc)
+    perfil = serializar_corretor_publico(doc)
+    resumo = _calcular_resumo_parceiro(perfil["imobiliaria"])
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "corretor": perfil,
+        "resumo_conta": resumo,
+    }
+
+
+@app.get("/auth/me", responses=RESPONSES_401_500)
+def obter_meu_perfil(
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    perfil = serializar_corretor_publico(corretor_atual)
+    resumo = _calcular_resumo_parceiro(perfil["imobiliaria"])
+    return {
+        "corretor": perfil,
+        "resumo_conta": resumo,
+    }
+
+
+def _montar_campos_atualizacao_perfil(
+    dados: AtualizarPerfilCorretorRequest,
+    corretor_atual: Dict[str, Any],
+) -> Dict[str, Any]:
+    campos_set: Dict[str, Any] = {}
+    for nome_campo in ("nome", "telefone", "whatsapp", "email", "creci", "site_externo"):
+        valor = getattr(dados, nome_campo, None)
+        if valor is not None:
+            campos_set[nome_campo] = valor.strip()
+
+    if dados.nova_senha:
+        if not dados.senha_atual or not verificar_senha(
+            dados.senha_atual, corretor_atual.get("senha_hash", "")
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="A senha atual informada está incorreta.",
+            )
+        campos_set["senha_hash"] = gerar_hash_senha(dados.nova_senha)
+
+    return campos_set
+
+
+@app.put("/auth/perfil", responses=RESPONSES_400_401_500)
+def atualizar_perfil_corretor(
+    dados: AtualizarPerfilCorretorRequest,
+    corretor_atual: Annotated[Dict[str, Any], Depends(obter_corretor_atual)],
+):
+    if corretores_collection is None:
+        raise HTTPException(status_code=500, detail=ERROR_DB)
+
+    campos_set = _montar_campos_atualizacao_perfil(dados, corretor_atual)
+    if not campos_set:
+        raise HTTPException(status_code=400, detail="Nenhum campo enviado para atualização.")
+
+    campos_set["atualizado_em"] = datetime.now(timezone.utc)
+    corretores_collection.update_one(
+        {"_id": corretor_atual["_id"]},
+        {"$set": campos_set},
+    )
+
+    doc_atualizado = corretores_collection.find_one({"_id": corretor_atual["_id"]}) or corretor_atual
+    return {
+        "mensagem": "Perfil atualizado com sucesso.",
+        "corretor": serializar_corretor_publico(doc_atualizado),
     }
 
 

@@ -50,3 +50,19 @@ class Imovel(BaseModel):
 class CliqueLeadRequest(BaseModel):
     id_unico: str
     origem: Optional[str] = "detalhes"
+
+
+class LoginCorretorRequest(BaseModel):
+    usuario: str = Field(..., min_length=2, max_length=60)
+    senha: str = Field(..., min_length=4, max_length=128)
+
+
+class AtualizarPerfilCorretorRequest(BaseModel):
+    nome: Optional[str] = Field(default=None, max_length=100)
+    telefone: Optional[str] = Field(default=None, max_length=30)
+    whatsapp: Optional[str] = Field(default=None, max_length=30)
+    email: Optional[str] = Field(default=None, max_length=120)
+    creci: Optional[str] = Field(default=None, max_length=40)
+    site_externo: Optional[str] = Field(default=None, max_length=200)
+    senha_atual: Optional[str] = Field(default=None, max_length=128)
+    nova_senha: Optional[str] = Field(default=None, min_length=6, max_length=128)

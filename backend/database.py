@@ -17,17 +17,20 @@ if not MONGO_URL:
     db = None
     imoveis_collection = None
     cliques_collection = None
+    corretores_collection = None
 else:
     try:
         client = MongoClient(MONGO_URL)
         db = client[DB_NAME]
         imoveis_collection = db["imoveis"]
         cliques_collection = db["cliques_leads"]
+        corretores_collection = db["corretores"]
         client.admin.command('ping')
     except Exception as e:
         print(f"Erro ao conectar no MongoDB: {e}")
         imoveis_collection = None
         cliques_collection = None
+        corretores_collection = None
 
 def criar_indices():
     if imoveis_collection is not None:
@@ -41,6 +44,8 @@ def criar_indices():
             if cliques_collection is not None:
                 cliques_collection.create_index([("imobiliaria", 1), ("timestamp", -1)])
                 cliques_collection.create_index([("id_unico", 1), ("timestamp", -1)])
+            if corretores_collection is not None:
+                corretores_collection.create_index("usuario", unique=True)
             print("Índices do MongoDB verificados.")
         except Exception as e:
             print(f"Erro ao criar índices: {e}")

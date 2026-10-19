@@ -1,6 +1,20 @@
+import { obterTokenCorretor, encerrarSessaoCorretor } from "../utils/authCorretor";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const STATUS_PERMITIDOS = new Set(["ativos", "descontinuados", "todos"]);
+
+const montarHeadersAutenticados = (incluirJson = false) => {
+    const token = obterTokenCorretor();
+    const headers = {};
+    if (incluirJson) {
+        headers["Content-Type"] = "application/json";
+    }
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+    return headers;
+};
 
 export const getFiltros = async (status = "ativos") => {
     try {
@@ -65,7 +79,55 @@ export const registrarCliqueLead = (idUnico, origem = "detalhes") => {
 
 export const getEstatisticas = async (cidade = "") => {
     const query = cidade ? `?cidade=${encodeURIComponent(cidade)}` : "";
-    const response = await fetch(`${API_URL}/estatisticas${query}`);
+    const response = await fetch(`${API_URL}/estatisticas${query}`, {
+        headers: montarHeadersAutenticados(false),
+    });
+    if (response.status === 401) {
+        encerrarSessaoCorretor();
+        const erroAuth = new Error("Acesso restrito a corretores autenticados.");
+        erroAuth.status = 401;
+        throw erroAuth;
+    }
     if (!response.ok) throw new Error("Erro ao carregar estatísticas de mercado");
     return await response.json();
+};
+
+export const loginCorretorApi = async (usuario, senha) => {
+    const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario, senha }),
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(dados.detail || "Não foi possível realizar o login.");
+    }
+    return dados;
+};
+
+export const obterMeuPerfilCorretorApi = async () => {
+    const response = await fetch(`${API_URL}/auth/me`, {
+        headers: montarHeadersAutenticados(false),
+    });
+    if (response.status === 401) {
+        encerrarSessaoCorretor();
+        const erroAuth = new Error("Sessão expirada.");
+        erroAuth.status = 401;
+        throw erroAuth;
+    }
+    if (!response.ok) throw new Error("Erro ao carregar dados do corretor.");
+    return await response.json();
+};
+
+export const atualizarPerfilCorretorApi = async (payload) => {
+    const response = await fetch(`${API_URL}/auth/perfil`, {
+        method: "PUT",
+        headers: montarHeadersAutenticados(true),
+        body: JSON.stringify(payload),
+    });
+    const dados = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(dados.detail || "Não foi possível atualizar o perfil.");
+    }
+    return dados;
 };

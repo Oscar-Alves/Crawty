@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Home, BarChart3, Search, Flame } from 'lucide-react';
+import { Home, BarChart3, Search, Flame, Building2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { lerIdsMatchesCookie } from '../utils/cookiesMatch';
+import { estaAutenticadoCorretor } from '../utils/authCorretor';
 
 const Header = () => {
     const location = useLocation();
     const isEstatisticas = location.pathname.startsWith('/estatisticas');
     const isMatch = location.pathname.startsWith('/match');
+    const isCorretor = location.pathname.startsWith('/corretor');
     const isBusca = location.pathname === '/' || location.pathname.startsWith('/imovel');
+
     const [totalMatches, setTotalMatches] = useState(() => lerIdsMatchesCookie().length);
+    const [autenticadoCorretor, setAutenticadoCorretor] = useState(() => estaAutenticadoCorretor());
 
     useEffect(() => {
         const aoAtualizarMatches = (evento) => {
@@ -20,8 +24,16 @@ const Header = () => {
             }
         };
 
+        const aoAtualizarAuth = () => {
+            setAutenticadoCorretor(estaAutenticadoCorretor());
+        };
+
         globalThis.addEventListener('crawty-matches-updated', aoAtualizarMatches);
-        return () => globalThis.removeEventListener('crawty-matches-updated', aoAtualizarMatches);
+        globalThis.addEventListener('crawty-auth-updated', aoAtualizarAuth);
+        return () => {
+            globalThis.removeEventListener('crawty-matches-updated', aoAtualizarMatches);
+            globalThis.removeEventListener('crawty-auth-updated', aoAtualizarAuth);
+        };
     }, []);
 
     return (
@@ -73,17 +85,34 @@ const Header = () => {
                         )}
                     </Link>
 
+                    {autenticadoCorretor && (
+                        <Link
+                            to="/estatisticas"
+                            className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                                isEstatisticas
+                                    ? 'bg-blue-600 text-white shadow-sm'
+                                    : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/60 border border-transparent hover:border-blue-100'
+                            }`}
+                        >
+                            <BarChart3 size={15} />
+                            <span className="hidden md:inline">Mercado & Dados</span>
+                            <span className="md:hidden">Dados</span>
+                        </Link>
+                    )}
+
                     <Link
-                        to="/estatisticas"
+                        to={autenticadoCorretor ? '/corretor' : '/corretor/login'}
                         className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-                            isEstatisticas
-                                ? 'bg-blue-600 text-white shadow-sm'
-                                : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/60 border border-transparent hover:border-blue-100'
+                            isCorretor
+                                ? 'bg-slate-900 text-white shadow-sm'
+                                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/80'
                         }`}
                     >
-                        <BarChart3 size={15} />
-                        <span className="hidden md:inline">Mercado & Dados</span>
-                        <span className="md:hidden">Dados</span>
+                        <Building2 size={15} />
+                        <span className="hidden md:inline">
+                            {autenticadoCorretor ? 'Painel Corretor' : 'Área do Corretor'}
+                        </span>
+                        <span className="md:hidden">Corretor</span>
                     </Link>
                 </nav>
             </div>

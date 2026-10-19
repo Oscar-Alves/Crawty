@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { getEstatisticas } from "../services/api";
 import { FILTROS_INICIAIS, salvarFiltrosSalvos, salvarPaginaSalva } from "../components/Filtros";
+import { estaAutenticadoCorretor } from "../utils/authCorretor";
 
 const formatarMoeda = (valor) => {
     if (!valor || valor <= 0) return "—";
@@ -48,6 +49,11 @@ const Estatisticas = () => {
     const [ordenacaoBairro, setOrdenacaoBairro] = useState("ativos_desc");
 
     useEffect(() => {
+        if (!estaAutenticadoCorretor()) {
+            navigate("/corretor/login?redirect=/estatisticas", { replace: true });
+            return undefined;
+        }
+
         let ativo = true;
         const carregar = async () => {
             setLoading(true);
@@ -57,7 +63,12 @@ const Estatisticas = () => {
                 if (ativo) setDados(res);
             } catch (err) {
                 console.error(err);
-                if (ativo) setErro("Não foi possível carregar os indicadores de mercado.");
+                if (!ativo) return;
+                if (err.status === 401) {
+                    navigate("/corretor/login?redirect=/estatisticas", { replace: true });
+                    return;
+                }
+                setErro("Não foi possível carregar os indicadores de mercado.");
             } finally {
                 if (ativo) setLoading(false);
             }
@@ -66,7 +77,7 @@ const Estatisticas = () => {
         return () => {
             ativo = false;
         };
-    }, [cidadeSelecionada]);
+    }, [cidadeSelecionada, navigate]);
 
     const navegarComFiltro = (novosFiltros) => {
         const baseFiltros = {

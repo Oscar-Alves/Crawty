@@ -4,6 +4,8 @@ import Home from './pages/Home';
 import DetalhesImovel from './pages/DetalhesImovel';
 import Estatisticas from './pages/Estatisticas';
 import ModoMatch from './pages/ModoMatch';
+import LoginCorretor from './pages/LoginCorretor';
+import PainelCorretor from './pages/PainelCorretor';
 
 function App() {
   return (
@@ -15,6 +17,8 @@ function App() {
           <Route path="/imovel/:id" element={<DetalhesImovel />} />
           <Route path="/match" element={<ModoMatch />} />
           <Route path="/estatisticas" element={<Estatisticas />} />
+          <Route path="/corretor/login" element={<LoginCorretor />} />
+          <Route path="/corretor" element={<PainelCorretor />} />
         </Routes>
       </div>
     </BrowserRouter>
