@@ -6,10 +6,10 @@ from typing import Dict, Any, List
 
 try:
     from models import SalvarImovelCorretorRequest
-    from normalizer import normalizar_cidade, normalizar_bairro
+    from normalizer import normalizar_cidade, normalizar_bairro, normalizar_localizacao
 except ImportError:
     from backend.models import SalvarImovelCorretorRequest
-    from backend.normalizer import normalizar_cidade, normalizar_bairro
+    from backend.normalizer import normalizar_cidade, normalizar_bairro, normalizar_localizacao
 
 
 def construir_filtro_carteira_corretor(corretor: Dict[str, Any]) -> Dict[str, Any]:

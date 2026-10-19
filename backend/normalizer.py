@@ -460,6 +460,14 @@ def normalizar_localizacao(
     return bairro_final, cidade
 
 
+def normalizar_bairro(bairro_raw: Optional[str], cidade_raw: Optional[str] = None) -> str:
+    """
+    Normaliza o nome do bairro utilizando as regras canônicas de localização.
+    """
+    bairro_norm, _ = normalizar_localizacao(bairro_raw, cidade_raw)
+    return bairro_norm
+
+
 SUBTIPOS_PADRONIZADOS = {
     "Casa de condomínio": "Casa de Condomínio",
     "Casa de vila": "Casa de Vila",
