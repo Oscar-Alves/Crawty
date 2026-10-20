@@ -18,7 +18,21 @@ from crawlers import (
     ResendeCrawler,
     ContinuaCrawler,
     MendoncaCrawler,
-    LongattiCrawler
+    LongattiCrawler,
+    LCImobiliariaCrawler,
+    InvestCrawler,
+    VertentesCrawler,
+    SigmaCrawler,
+    TetoCrawler,
+    CasaMineiraCrawler,
+    VenanciaCrawler,
+    GuilhermeAugustoCrawler,
+    MarceloCrawler,
+    SavioCrawler,
+    CelsoJrCrawler,
+    CarazzaCrawler,
+    TrindadeCrawler,
+    TerraDosImoveisCrawler,
 )
 
 # Diretório padrão para salvar os arquivos individuais de cada crawler
@@ -101,7 +115,7 @@ def main():
         (ZanferCrawler, 'Zanfer'),
         (ChavesCrawler, 'Chaves'),
         (FlavioCrawler, 'Flavio Vitor'),
-        # (DomiciliumCrawler, 'Domicilium'),
+        (DomiciliumCrawler, 'Domicilium'),
         (LiderCrawler, 'Líder'),
         (KrasisCrawler, 'Krasis'),
         (JFroesCrawler, 'JFróes'),
@@ -112,6 +126,21 @@ def main():
         (ResendeCrawler, 'Resende'),
         (MendoncaCrawler, 'Mendonça'),
         # (LongattiCrawler, 'Longatti'), # Desativado temporariamente devido a instabilidade no site oficial
+        # Novas fontes adicionadas
+        (CarazzaCrawler, 'Carazza'),
+        (InvestCrawler, 'Invest'),
+        (VenanciaCrawler, 'Venância'),
+        (LCImobiliariaCrawler, 'LC Imobiliária'),
+        (VertentesCrawler, 'Vertentes'),
+        (MarceloCrawler, 'Marcelo Corretor'),
+        (CasaMineiraCrawler, 'Casa Mineira'),
+        (TerraDosImoveisCrawler, 'Terra dos Imóveis'),
+        (GuilhermeAugustoCrawler, 'Guilherme Augusto'),
+        (TrindadeCrawler, 'Trindade'),
+        (SigmaCrawler, 'Sigma'),
+        (TetoCrawler, 'Teto Imóveis'),
+        (CelsoJrCrawler, 'Celso Jr'),
+        (SavioCrawler, 'Sávio Corretor'),
     ]
 
     print(f"--- Iniciando Captura Concorrente de {len(tasks)} Imobiliárias ---")
