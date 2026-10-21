@@ -25,6 +25,7 @@ try:
         serializar_corretor_publico,
         obter_corretor_atual,
     )
+    from foto_utils import normalizar_url_foto
     from corretor_service import (
         construir_filtro_carteira_corretor,
         verificar_permissao_imovel,

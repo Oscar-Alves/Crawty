@@ -1,7 +1,10 @@
 import re
 import unicodedata
 from typing import Dict, Any, Tuple, Optional
-from backend.foto_utils import normalizar_url_foto
+try:
+    from foto_utils import normalizar_url_foto
+except ImportError:
+    from backend.foto_utils import normalizar_url_foto
 
 CIDADE_SJDR = "São João del Rei"
 CIDADE_TREMEMBE = "Tremembé"

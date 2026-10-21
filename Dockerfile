@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir --only-binary :all: \
 COPY backend/ ./backend/
 
 # O PULO DO GATO: Adiciona a pasta /app/backend à lista de locais onde o Python busca arquivos
-ENV PYTHONPATH=/app/backend
+ENV PYTHONPATH=/app:/app/backend
 
 # Garante que a saída do log apareça imediatamente (sem buffer)
 ENV PYTHONUNBUFFERED=1
