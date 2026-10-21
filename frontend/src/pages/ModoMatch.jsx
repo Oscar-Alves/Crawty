@@ -1027,12 +1027,24 @@ const ModoMatch = () => {
                 const novosItens = (resposta?.data || []).filter((item) => item?.id_unico);
                 novosItens.forEach(salvarImovelCacheMemoria);
 
-                setTotalPaginasDeck(resposta?.meta?.total_pages || 1);
-                setTotalEncontrados(resposta?.meta?.total || novosItens.length);
+                const totalRegistros = Number(resposta?.meta?.total ?? novosItens.length);
+                const limite = Number(params.limit || 24);
+                const totalPags =
+                    Number(resposta?.meta?.total_pages) ||
+                    Number(resposta?.meta?.pages) ||
+                    Math.ceil(totalRegistros / limite) ||
+                    1;
+
+                setTotalPaginasDeck(totalPags);
+                setTotalEncontrados(totalRegistros);
                 setPaginaDeck(paginaSolicitada);
 
                 if (anexar) {
-                    setFilaImoveis((prev) => [...prev, ...novosItens]);
+                    setFilaImoveis((prev) => {
+                        const idsExistentes = new Set(prev.map((i) => i.id_unico));
+                        const itensNaoDuplicados = novosItens.filter((i) => !idsExistentes.has(i.id_unico));
+                        return [...prev, ...itensNaoDuplicados];
+                    });
                 } else {
                     setFilaImoveis(novosItens);
                     setIndiceAtual(0);
@@ -1062,18 +1074,26 @@ const ModoMatch = () => {
         }
     }, [etapa, filaImoveis.length, carregandoDeck, buscarLoteImoveisDeck]);
 
+    // Prefetch automático: quando restarem 6 ou menos cards na fila carregada, busca a próxima página
+    useEffect(() => {
+        if (etapa !== 'deck') return;
+        const faltamCards = filaImoveis.length - indiceAtual;
+        const temMaisNoServidor = filaImoveis.length < totalEncontrados;
+
+        if (temMaisNoServidor && faltamCards <= 6 && !carregandoDeck) {
+            const proximaPagina = Math.floor(filaImoveis.length / 24) + 1;
+            if (proximaPagina <= totalPaginasDeck) {
+                void buscarLoteImoveisDeck(proximaPagina, true);
+            }
+        }
+    }, [etapa, indiceAtual, filaImoveis.length, totalEncontrados, totalPaginasDeck, carregandoDeck, buscarLoteImoveisDeck]);
+
     const imovelAtual = filaImoveis[indiceAtual] || null;
 
     const avancarParaProximoCard = useCallback(() => {
-        const proximoIndice = indiceAtual + 1;
-        setIndiceAtual(proximoIndice);
+        setIndiceAtual((prev) => prev + 1);
         setAnimacaoSaida('');
-
-        const pertoDoFim = proximoIndice >= filaImoveis.length - 3;
-        if (pertoDoFim && paginaDeck < totalPaginasDeck && !carregandoDeck) {
-            void buscarLoteImoveisDeck(paginaDeck + 1, true);
-        }
-    }, [indiceAtual, filaImoveis.length, paginaDeck, totalPaginasDeck, carregandoDeck, buscarLoteImoveisDeck]);
+    }, []);
 
     const handlePassarCard = useCallback(() => {
         if (!imovelAtual || animacaoSaida) return;
@@ -1185,7 +1205,7 @@ const ModoMatch = () => {
                         </div>
                     )}
 
-                    {!carregandoDeck && imovelAtual && (
+                    {imovelAtual && (
                         <CardImovelMatch
                             imovel={imovelAtual}
                             animacaoSaida={animacaoSaida}
@@ -1194,7 +1214,21 @@ const ModoMatch = () => {
                         />
                     )}
 
-                    {!carregandoDeck && !imovelAtual && (
+                    {!imovelAtual && (carregandoDeck || (totalEncontrados > 0 && indiceAtual < totalEncontrados)) && (
+                        <div className="max-w-lg mx-auto bg-white rounded-3xl border border-gray-200 p-12 text-center shadow-sm">
+                            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-3 animate-spin">
+                                <Flame size={24} />
+                            </div>
+                            <p className="text-base font-bold text-gray-800">
+                                Carregando mais imóveis...
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Buscando os próximos anúncios compatíveis com o seu perfil.
+                            </p>
+                        </div>
+                    )}
+
+                    {!carregandoDeck && !imovelAtual && (!totalEncontrados || indiceAtual >= totalEncontrados) && (
                         <div className="max-w-lg mx-auto bg-white rounded-3xl border border-gray-200 p-10 text-center shadow-sm">
                             <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-4">
                                 <Sparkles size={28} />

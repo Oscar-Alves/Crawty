@@ -447,13 +447,14 @@ def listar_imoveis(params: Annotated[FiltrosImoveisQuery, Query()]):
     cursor = imoveis_collection.find(query).sort(sort_criteria).skip(skip).limit(params.limit)
     dados = [converter_mongo_para_dict(doc) for doc in cursor]
 
+    total_pages = (total_registros // params.limit) + (1 if total_registros % params.limit > 0 else 0)
     return {
         "meta": {
             "total": total_registros,
             "page": params.page,
             "limit": params.limit,
-            "pages": (total_registros // params.limit)
-            + (1 if total_registros % params.limit > 0 else 0),
+            "pages": total_pages,
+            "total_pages": total_pages,
         },
         "data": dados,
     }
