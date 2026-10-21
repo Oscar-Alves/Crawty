@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     SlidersHorizontal,
     Search,
@@ -16,6 +16,7 @@ import {
     Database,
     Home as HomeIcon,
     TrendingDown,
+    Check,
 } from 'lucide-react';
 
 export const FILTROS_INICIAIS = {
@@ -40,10 +41,26 @@ export const FILTROS_INICIAIS = {
     ordenar_por: '',
 };
 
+const CHAVE_STORAGE_FILTROS = 'crawty_filtros_home';
+const CHAVE_STORAGE_PAGINA = 'crawty_pagina_home';
+const CHAVE_STORAGE_SCROLL = 'crawty_scroll_home';
+
 let memoriaFiltros = { ...FILTROS_INICIAIS };
 let memoriaPagina = 1;
+let memoriaScroll = 0;
 
-export const obterFiltrosSalvos = () => ({ ...FILTROS_INICIAIS, ...memoriaFiltros });
+export const obterFiltrosSalvos = () => {
+    try {
+        const salvo = sessionStorage.getItem(CHAVE_STORAGE_FILTROS);
+        if (salvo) {
+            const parsed = JSON.parse(salvo);
+            return { ...FILTROS_INICIAIS, ...parsed };
+        }
+    } catch {
+        // fallback
+    }
+    return { ...FILTROS_INICIAIS, ...memoriaFiltros };
+};
 
 export const salvarFiltrosSalvos = (novosFiltros) => {
     const mesclado = { ...FILTROS_INICIAIS, ...novosFiltros };
@@ -51,13 +68,59 @@ export const salvarFiltrosSalvos = (novosFiltros) => {
         mesclado.ordenar_por = 'recente';
     }
     memoriaFiltros = mesclado;
+    try {
+        sessionStorage.setItem(CHAVE_STORAGE_FILTROS, JSON.stringify(mesclado));
+    } catch {
+        // fallback
+    }
 };
 
-export const obterPaginaSalva = () => memoriaPagina;
+export const obterPaginaSalva = () => {
+    try {
+        const salvo = sessionStorage.getItem(CHAVE_STORAGE_PAGINA);
+        if (salvo) {
+            const num = Number.parseInt(salvo, 10);
+            if (!Number.isNaN(num) && num >= 1) return num;
+        }
+    } catch {
+        // fallback
+    }
+    return memoriaPagina;
+};
 
 export const salvarPaginaSalva = (pagina) => {
     const num = Number.parseInt(String(pagina), 10);
-    memoriaPagina = Number.isNaN(num) || num < 1 ? 1 : num;
+    const valida = Number.isNaN(num) || num < 1 ? 1 : num;
+    memoriaPagina = valida;
+    try {
+        sessionStorage.setItem(CHAVE_STORAGE_PAGINA, String(valida));
+    } catch {
+        // fallback
+    }
+};
+
+export const obterScrollSalvo = () => {
+    try {
+        const salvo = sessionStorage.getItem(CHAVE_STORAGE_SCROLL);
+        if (salvo) {
+            const num = Number.parseInt(salvo, 10);
+            if (!Number.isNaN(num) && num >= 0) return num;
+        }
+    } catch {
+        // fallback
+    }
+    return memoriaScroll;
+};
+
+export const salvarScrollSalvo = (pos) => {
+    const num = Number.parseInt(String(pos), 10);
+    const valida = Number.isNaN(num) || num < 0 ? 0 : num;
+    memoriaScroll = valida;
+    try {
+        sessionStorage.setItem(CHAVE_STORAGE_SCROLL, String(valida));
+    } catch {
+        // fallback
+    }
 };
 
 const FAIXAS_PRECO_VENDA = [
@@ -101,31 +164,47 @@ const obterSubtiposDosTipos = (valorTipo, opcoes) => {
     return Array.from(conjunto).sort((a, b) => a.localeCompare(b));
 };
 
-const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbertoMobile, totalResultados }) => {
+const Filtros = ({
+    opcoes,
+    filtros,
+    setFiltros,
+    onAplicar,
+    onLimpar,
+    abertoMobile,
+    setAbertoMobile,
+    totalResultados,
+}) => {
+    // Mantém estado de rascunho local para que alterações não disparem requisições imediatas
+    const [rascunho, setRascunho] = useState(() => ({ ...filtros }));
     const [buscaBairro, setBuscaBairro] = useState('');
+
+    // Sincroniza rascunho sempre que os filtros aplicados mudarem externamente (ex: remoção de chips ou limpar)
+    useEffect(() => {
+        setRascunho({ ...filtros });
+    }, [filtros]);
 
     // Lista de bairros filtrada pela cidade selecionada (ou todos se nenhuma cidade selecionada)
     const bairrosDisponiveis = useMemo(() => {
         const base =
-            filtros.cidade && opcoes.bairros_por_cidade?.[filtros.cidade]
-                ? opcoes.bairros_por_cidade[filtros.cidade]
+            rascunho.cidade && opcoes.bairros_por_cidade?.[rascunho.cidade]
+                ? opcoes.bairros_por_cidade[rascunho.cidade]
                 : opcoes.bairros || [];
 
         if (!buscaBairro.trim()) return base;
         const termo = buscaBairro.toLowerCase().trim();
         return base.filter((b) => b.toLowerCase().includes(termo));
-    }, [filtros.cidade, opcoes.bairros, opcoes.bairros_por_cidade, buscaBairro]);
+    }, [rascunho.cidade, opcoes.bairros, opcoes.bairros_por_cidade, buscaBairro]);
 
-    const tiposSelecionados = useMemo(() => extrairListaTipos(filtros.tipo), [filtros.tipo]);
+    const tiposSelecionados = useMemo(() => extrairListaTipos(rascunho.tipo), [rascunho.tipo]);
 
     // Lista de subtipos filtrada pelos tipos selecionados
     const subtiposDisponiveis = useMemo(
-        () => obterSubtiposDosTipos(filtros.tipo, opcoes),
-        [filtros.tipo, opcoes]
+        () => obterSubtiposDosTipos(rascunho.tipo, opcoes),
+        [rascunho.tipo, opcoes]
     );
 
     const atualizarCampo = (campo, valor) => {
-        setFiltros((prev) => {
+        setRascunho((prev) => {
             const novo = { ...prev, [campo]: valor };
 
             if (campo === 'cidade') {
@@ -154,7 +233,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
     };
 
     const aplicarFaixaPreco = (min, max) => {
-        setFiltros((prev) => {
+        setRascunho((prev) => {
             const mesmaFaixa = String(prev.preco_min) === String(min) && String(prev.preco_max) === String(max);
             return {
                 ...prev,
@@ -164,15 +243,52 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
         });
     };
 
-    const qtdFiltrosAtivos = useMemo(() => {
+    const qtdFiltrosAtivosRascunho = useMemo(() => {
         let count = 0;
-        Object.entries(filtros).forEach(([k, v]) => {
+        Object.entries(rascunho).forEach(([k, v]) => {
             if (k === 'ordenar_por') return;
             if (k === 'status' && v === 'ativos') return;
             if (v !== '' && v !== false && v !== null && v !== undefined) count++;
         });
         return count;
-    }, [filtros]);
+    }, [rascunho]);
+
+    const temAlteracoesPendentes = useMemo(() => {
+        const chaves = Object.keys(FILTROS_INICIAIS).filter((k) => k !== 'ordenar_por');
+        return chaves.some((k) => String(rascunho[k] ?? '') !== String(filtros[k] ?? ''));
+    }, [rascunho, filtros]);
+
+    const handleAplicar = () => {
+        if (typeof onAplicar === 'function') {
+            onAplicar(rascunho);
+        } else if (typeof setFiltros === 'function') {
+            setFiltros(rascunho);
+        }
+        if (abertoMobile && typeof setAbertoMobile === 'function') {
+            setAbertoMobile(false);
+        }
+    };
+
+    const handleLimpar = () => {
+        setBuscaBairro('');
+        const resetado = { ...FILTROS_INICIAIS, ordenar_por: filtros.ordenar_por };
+        setRascunho(resetado);
+        if (typeof onLimpar === 'function') {
+            onLimpar();
+        } else if (typeof setFiltros === 'function') {
+            setFiltros(resetado);
+        }
+        if (abertoMobile && typeof setAbertoMobile === 'function') {
+            setAbertoMobile(false);
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAplicar();
+        }
+    };
 
     const inputClass =
         'w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition-all';
@@ -180,7 +296,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
         'flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider mb-2.5';
 
     const renderSeletorMinimo = (label, icone, campo, opcoesValores = [1, 2, 3, 4]) => {
-        const valorAtual = String(filtros[campo] || '');
+        const valorAtual = String(rascunho[campo] || '');
         return (
             <div>
                 <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
@@ -222,7 +338,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
     };
 
     const faixasSugeridas =
-        filtros.modalidade === 'ALUGUEL' ? FAIXAS_PRECO_ALUGUEL : FAIXAS_PRECO_VENDA;
+        rascunho.modalidade === 'ALUGUEL' ? FAIXAS_PRECO_ALUGUEL : FAIXAS_PRECO_VENDA;
 
     const conteudoFiltros = (
         <div className="space-y-6">
@@ -235,21 +351,18 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                     <div>
                         <h2 className="font-bold text-gray-900 text-base leading-tight">Filtros</h2>
                         <p className="text-xs text-gray-500">
-                            {qtdFiltrosAtivos > 0
-                                ? `${qtdFiltrosAtivos} filtro(s) aplicado(s)`
+                            {qtdFiltrosAtivosRascunho > 0
+                                ? `${qtdFiltrosAtivosRascunho} filtro(s) selecionado(s)`
                                 : 'Refine sua busca'}
                         </p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {qtdFiltrosAtivos > 0 && (
+                    {qtdFiltrosAtivosRascunho > 0 && (
                         <button
                             type="button"
-                            onClick={() => {
-                                setBuscaBairro('');
-                                onLimpar();
-                            }}
+                            onClick={handleLimpar}
                             className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition-colors"
                         >
                             <RotateCcw size={13} />
@@ -268,6 +381,22 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                 </div>
             </div>
 
+            {/* Botão de Aplicar no Topo da Sidebar (Desktop) */}
+            <div className="hidden lg:block">
+                <button
+                    type="button"
+                    onClick={handleAplicar}
+                    className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm ${
+                        temAlteracoesPendentes
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 ring-2 ring-blue-500/30'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
+                >
+                    <Check size={16} />
+                    {temAlteracoesPendentes ? 'Aplicar Alterações' : 'Aplicar Filtros'}
+                </button>
+            </div>
+
             {/* 1. Finalidade (Comprar / Alugar) */}
             <div>
                 <span className={sectionTitleClass}>Finalidade</span>
@@ -277,7 +406,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                         { label: 'Comprar', value: 'VENDA' },
                         { label: 'Alugar', value: 'ALUGUEL' },
                     ].map((opt) => {
-                        const ativo = filtros.modalidade === opt.value;
+                        const ativo = rascunho.modalidade === opt.value;
                         return (
                             <button
                                 key={opt.value}
@@ -307,12 +436,13 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                         id="filtro-busca"
                         type="text"
                         name="busca"
-                        value={filtros.busca}
+                        value={rascunho.busca}
                         onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
                         placeholder="Ex: Cód. 1153, rua, condomínio..."
                         className={`${inputClass} pr-8`}
                     />
-                    {filtros.busca && (
+                    {rascunho.busca && (
                         <button
                             type="button"
                             onClick={() => atualizarCampo('busca', '')}
@@ -338,7 +468,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                     <select
                         id="filtro-cidade"
                         name="cidade"
-                        value={filtros.cidade}
+                        value={rascunho.cidade}
                         onChange={handleInputChange}
                         className={inputClass}
                     >
@@ -385,13 +515,13 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                     <select
                         id="filtro-bairro"
                         name="bairro"
-                        value={filtros.bairro}
+                        value={rascunho.bairro}
                         onChange={handleInputChange}
                         className={inputClass}
                     >
                         <option value="">
-                            {filtros.cidade
-                                ? `Todos em ${filtros.cidade}`
+                            {rascunho.cidade
+                                ? `Todos em ${rascunho.cidade}`
                                 : 'Todos os Bairros'}
                         </option>
                         {bairrosDisponiveis.map((b) => (
@@ -432,7 +562,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                                 key={t}
                                 type="button"
                                 onClick={() =>
-                                    atualizarCampo('tipo', alternarTipoNaString(filtros.tipo, t))
+                                    atualizarCampo('tipo', alternarTipoNaString(rascunho.tipo, t))
                                 }
                                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                                     ativo
@@ -454,7 +584,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                         <select
                             id="filtro-subtipo"
                             name="subtipo"
-                            value={filtros.subtipo}
+                            value={rascunho.subtipo}
                             onChange={handleInputChange}
                             className={inputClass}
                         >
@@ -491,8 +621,9 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                             name="preco_min"
                             min="0"
                             step="500"
-                            value={filtros.preco_min}
+                            value={rascunho.preco_min}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             placeholder="R$ Mín"
                             className={inputClass}
                         />
@@ -507,8 +638,9 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                             name="preco_max"
                             min="0"
                             step="500"
-                            value={filtros.preco_max}
+                            value={rascunho.preco_max}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             placeholder="R$ Máx"
                             className={inputClass}
                         />
@@ -519,8 +651,8 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                 <div className="flex flex-wrap gap-1.5">
                     {faixasSugeridas.map((f) => {
                         const selecionada =
-                            String(filtros.preco_min) === f.min &&
-                            String(filtros.preco_max) === f.max;
+                            String(rascunho.preco_min) === f.min &&
+                            String(rascunho.preco_max) === f.max;
                         return (
                             <button
                                 key={f.label}
@@ -588,8 +720,9 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                             type="number"
                             name="area_min"
                             min="0"
-                            value={filtros.area_min}
+                            value={rascunho.area_min}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             placeholder="Ex: 60"
                             className={inputClass}
                         />
@@ -603,8 +736,9 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                             type="number"
                             name="area_max"
                             min="0"
-                            value={filtros.area_max}
+                            value={rascunho.area_max}
                             onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
                             placeholder="Ex: 300"
                             className={inputClass}
                         />
@@ -626,7 +760,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                     <select
                         id="filtro-imobiliaria"
                         name="imobiliaria"
-                        value={filtros.imobiliaria}
+                        value={rascunho.imobiliaria}
                         onChange={handleInputChange}
                         className={inputClass}
                     >
@@ -649,7 +783,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                     <select
                         id="filtro-status"
                         name="status"
-                        value={filtros.status || 'ativos'}
+                        value={rascunho.status || 'ativos'}
                         onChange={handleInputChange}
                         className={inputClass}
                     >
@@ -668,7 +802,7 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                         id="filtro-apenas-com-foto"
                         type="checkbox"
                         name="apenas_com_foto"
-                        checked={Boolean(filtros.apenas_com_foto)}
+                        checked={Boolean(rascunho.apenas_com_foto)}
                         onChange={handleInputChange}
                         className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                     />
@@ -683,11 +817,23 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                         id="filtro-apenas-queda-preco"
                         type="checkbox"
                         name="apenas_queda_preco"
-                        checked={Boolean(filtros.apenas_queda_preco)}
+                        checked={Boolean(rascunho.apenas_queda_preco)}
                         onChange={handleInputChange}
                         className="w-4 h-4 text-rose-600 rounded border-gray-300 focus:ring-rose-500"
                     />
                 </label>
+            </div>
+
+            {/* Botão de Aplicar no Rodapé da Sidebar (Desktop) */}
+            <div className="hidden lg:block pt-2">
+                <button
+                    type="button"
+                    onClick={handleAplicar}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md transition-colors"
+                >
+                    <Check size={16} />
+                    Aplicar Filtros
+                </button>
             </div>
         </div>
     );
@@ -712,13 +858,21 @@ const Filtros = ({ opcoes, filtros, setFiltros, onLimpar, abertoMobile, setAbert
                     />
                     <div className="relative ml-auto w-full max-w-sm bg-white h-full shadow-2xl flex flex-col z-10">
                         <div className="flex-1 overflow-y-auto p-5">{conteudoFiltros}</div>
-                        <div className="p-4 border-t border-gray-100 bg-white">
+                        <div className="p-4 border-t border-gray-100 bg-white flex gap-2">
                             <button
                                 type="button"
-                                onClick={() => setAbertoMobile(false)}
-                                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-colors text-sm"
+                                onClick={handleLimpar}
+                                className="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors text-sm"
                             >
-                                Ver {totalResultados ?? ''} imóveis encontrados
+                                Limpar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleAplicar}
+                                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-colors text-sm flex items-center justify-center gap-2"
+                            >
+                                <Check size={18} />
+                                Aplicar Filtros
                             </button>
                         </div>
                     </div>

@@ -22,6 +22,7 @@ import {
     CheckCircle2,
 } from 'lucide-react';
 import { getFiltros, getImoveis, getImovelDetalhes, registrarCliqueLead } from '../services/api';
+import { normalizarUrlFoto } from '../utils/imagem';
 import {
     lerIdsMatchesCookie,
     adicionarMatchCookie,
@@ -511,7 +512,7 @@ const TelaPreferenciasMatch = ({
 };
 
 const GaleriaCardMatch = ({ imovel, indiceFoto, onMudarFoto }) => {
-    const fotos = imovel?.fotos?.length ? imovel.fotos : [IMAGEM_PLACEHOLDER];
+    const fotos = imovel?.fotos?.length ? imovel.fotos.map(normalizarUrlFoto) : [IMAGEM_PLACEHOLDER];
     const totalFotos = fotos.length;
     const fotoAtual = fotos[indiceFoto] || IMAGEM_PLACEHOLDER;
     const percentualQueda = calcularPercentualQueda(imovel);
@@ -724,7 +725,9 @@ const CardImovelMatch = ({
 
                     <Link
                         to={`/imovel/${imovel.id_unico}`}
-                        title="Ver ficha completa do imóvel"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Ver ficha completa do imóvel (abre em nova guia)"
                         className="w-12 h-12 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 text-gray-600 hover:text-blue-600 flex items-center justify-center transition-all shrink-0"
                     >
                         <Eye size={20} />
@@ -830,7 +833,7 @@ const GavetaMeusMatches = ({
                     )}
 
                     {imoveisMatch.map((imovel) => {
-                        const fotoCapa = imovel.fotos?.[0] || IMAGEM_PLACEHOLDER;
+                        const fotoCapa = imovel.fotos?.[0] ? normalizarUrlFoto(imovel.fotos[0]) : IMAGEM_PLACEHOLDER;
                         return (
                             <div
                                 key={imovel.id_unico}
@@ -880,6 +883,8 @@ const GavetaMeusMatches = ({
                                         </button>
                                         <Link
                                             to={`/imovel/${imovel.id_unico}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
                                             onClick={onFechar}
                                             className="py-1.5 px-2.5 rounded-lg text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
                                         >
@@ -896,10 +901,37 @@ const GavetaMeusMatches = ({
     );
 };
 
+const CHAVE_STORAGE_MATCH = 'crawty_match_sessao';
+
+const lerSessaoMatch = () => {
+    try {
+        const bruta = sessionStorage.getItem(CHAVE_STORAGE_MATCH);
+        if (bruta) {
+            const parsed = JSON.parse(bruta);
+            if (parsed && typeof parsed === 'object') {
+                return parsed;
+            }
+        }
+    } catch {
+        // sessionStorage indisponível ou erro no parse
+    }
+    return null;
+};
+
+const salvarSessaoMatch = (dados) => {
+    try {
+        sessionStorage.setItem(CHAVE_STORAGE_MATCH, JSON.stringify(dados));
+    } catch {
+        // silêncio
+    }
+};
+
 const ModoMatch = () => {
-    // Sempre inicia na tela de preferências ao entrar em /match
-    const [etapa, setEtapa] = useState('preferencias');
-    const [preferencias, setPreferencias] = useState(PREFERENCIAS_INICIAIS);
+    const sessaoInicial = useMemo(() => lerSessaoMatch(), []);
+
+    // Restaura etapa e preferências salvas, ou inicia em preferências
+    const [etapa, setEtapa] = useState(() => sessaoInicial?.etapa || 'preferencias');
+    const [preferencias, setPreferencias] = useState(() => sessaoInicial?.preferencias || PREFERENCIAS_INICIAIS);
     const [opcoesBanco, setOpcoesBanco] = useState({
         cidades: [],
         bairros: [],
@@ -907,12 +939,12 @@ const ModoMatch = () => {
         tipos: [],
     });
 
-    // Estado do Deck de Cards
-    const [filaImoveis, setFilaImoveis] = useState([]);
-    const [indiceAtual, setIndiceAtual] = useState(0);
-    const [paginaDeck, setPaginaDeck] = useState(1);
-    const [totalPaginasDeck, setTotalPaginasDeck] = useState(1);
-    const [totalEncontrados, setTotalEncontrados] = useState(0);
+    // Estado do Deck de Cards restaurado da sessão
+    const [filaImoveis, setFilaImoveis] = useState(() => sessaoInicial?.filaImoveis || []);
+    const [indiceAtual, setIndiceAtual] = useState(() => sessaoInicial?.indiceAtual || 0);
+    const [paginaDeck, setPaginaDeck] = useState(() => sessaoInicial?.paginaDeck || 1);
+    const [totalPaginasDeck, setTotalPaginasDeck] = useState(() => sessaoInicial?.totalPaginasDeck || 1);
+    const [totalEncontrados, setTotalEncontrados] = useState(() => sessaoInicial?.totalEncontrados || 0);
     const [carregandoDeck, setCarregandoDeck] = useState(false);
     const [animacaoSaida, setAnimacaoSaida] = useState('');
     const [avisoMatchRecente, setAvisoMatchRecente] = useState('');
@@ -922,6 +954,19 @@ const ModoMatch = () => {
     const [imoveisMatch, setImoveisMatch] = useState([]);
     const [carregandoMatches, setCarregandoMatches] = useState(false);
     const [gavetaAberta, setGavetaAberta] = useState(false);
+
+    // Salva o progresso da fila e preferências na sessão para não resetar se o usuário sair/recarregar
+    useEffect(() => {
+        salvarSessaoMatch({
+            etapa,
+            preferencias,
+            filaImoveis,
+            indiceAtual,
+            paginaDeck,
+            totalPaginasDeck,
+            totalEncontrados,
+        });
+    }, [etapa, preferencias, filaImoveis, indiceAtual, paginaDeck, totalPaginasDeck, totalEncontrados]);
 
     // Carrega opções de cidades, bairros e tipos do backend
     useEffect(() => {
@@ -1010,6 +1055,12 @@ const ModoMatch = () => {
         setEtapa('deck');
         void buscarLoteImoveisDeck(1, false);
     };
+
+    useEffect(() => {
+        if (etapa === 'deck' && filaImoveis.length === 0 && !carregandoDeck) {
+            void buscarLoteImoveisDeck(1, false);
+        }
+    }, [etapa, filaImoveis.length, carregandoDeck, buscarLoteImoveisDeck]);
 
     const imovelAtual = filaImoveis[indiceAtual] || null;
 

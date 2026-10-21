@@ -52,6 +52,7 @@ except ImportError:
         serializar_corretor_publico,
         obter_corretor_atual,
     )
+    from backend.foto_utils import normalizar_url_foto
     from backend.corretor_service import (
         construir_filtro_carteira_corretor,
         verificar_permissao_imovel,
@@ -116,6 +117,9 @@ def converter_mongo_para_dict(imovel: Dict[str, Any]) -> Dict[str, Any]:
         ate_dt = _converter_destaque_ate(imovel["destaque_ate"])
         if ate_dt and ate_dt < datetime.now(timezone.utc):
             imovel["destaque"] = False
+    fotos = imovel.get("fotos")
+    if isinstance(fotos, list):
+        imovel["fotos"] = [normalizar_url_foto(f) for f in fotos if f]
     return imovel
 
 

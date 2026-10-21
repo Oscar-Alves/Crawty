@@ -14,6 +14,8 @@ import Filtros, {
     salvarFiltrosSalvos,
     obterPaginaSalva,
     salvarPaginaSalva,
+    obterScrollSalvo,
+    salvarScrollSalvo,
 } from '../components/Filtros';
 import { getImoveis, getFiltros } from '../services/api';
 
@@ -167,11 +169,42 @@ const Home = () => {
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState(false);
     const [abertoMobile, setAbertoMobile] = useState(false);
+    const [scrollRestaurado, setScrollRestaurado] = useState(false);
 
+    // Salva filtros e página atual no sessionStorage
     useEffect(() => {
         salvarFiltrosSalvos(filtros);
         salvarPaginaSalva(meta.page);
     }, [filtros, meta.page]);
+
+    // Salva scroll periodicamente no sessionStorage
+    useEffect(() => {
+        let scrollTimer;
+        const aoRolar = () => {
+            clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(() => {
+                salvarScrollSalvo(window.scrollY);
+            }, 100);
+        };
+        window.addEventListener('scroll', aoRolar, { passive: true });
+        return () => {
+            clearTimeout(scrollTimer);
+            window.removeEventListener('scroll', aoRolar);
+        };
+    }, []);
+
+    // Restaura posição do scroll ao carregar a página vindo de um retorno
+    useEffect(() => {
+        if (!loading && !scrollRestaurado && imoveis.length > 0) {
+            const scrollSalvo = obterScrollSalvo();
+            if (scrollSalvo > 0) {
+                setTimeout(() => {
+                    window.scrollTo({ top: scrollSalvo, behavior: 'instant' });
+                }, 50);
+            }
+            setScrollRestaurado(true);
+        }
+    }, [loading, scrollRestaurado, imoveis.length]);
 
     useEffect(() => {
         getFiltros(filtros.status || 'ativos')
@@ -199,38 +232,44 @@ const Home = () => {
                 setLoading(false);
             }
         };
-        const timeoutId = setTimeout(() => {
-            void fetchDados();
-        }, 280);
-        return () => clearTimeout(timeoutId);
+        void fetchDados();
     }, [filtros, meta.page]);
 
-    const handleFiltrosChange = (novoEstadoOuFuncao) => {
-        setFiltros((prev) => {
-            const novosFiltros =
-                typeof novoEstadoOuFuncao === 'function'
-                    ? novoEstadoOuFuncao(prev)
-                    : novoEstadoOuFuncao;
-
-            if (JSON.stringify(prev) !== JSON.stringify(novosFiltros)) {
-                setMeta((m) => ({ ...m, page: 1 }));
-            }
-            return novosFiltros;
-        });
+    const handleAplicarFiltros = (novosFiltros) => {
+        salvarScrollSalvo(0);
+        setMeta((m) => ({ ...m, page: 1 }));
+        setFiltros((prev) => ({
+            ...novosFiltros,
+            ordenar_por: prev.ordenar_por,
+        }));
     };
 
-    const limparFiltros = () => {
-        handleFiltrosChange({ ...FILTROS_INICIAIS, ordenar_por: filtros.ordenar_por });
+    const handleLimparFiltros = () => {
+        salvarScrollSalvo(0);
+        setMeta((m) => ({ ...m, page: 1 }));
+        setFiltros({ ...FILTROS_INICIAIS, ordenar_por: filtros.ordenar_por });
     };
 
     const removerFiltroIndividual = (chave) => {
-        handleFiltrosChange((prev) => ({
+        salvarScrollSalvo(0);
+        setMeta((m) => ({ ...m, page: 1 }));
+        setFiltros((prev) => ({
             ...prev,
             [chave]: VALORES_PADRAO_CAMPO[chave] ?? '',
         }));
     };
 
+    const handleOrdenarPor = (novoOrdenamento) => {
+        salvarScrollSalvo(0);
+        setMeta((m) => ({ ...m, page: 1 }));
+        setFiltros((prev) => ({
+            ...prev,
+            ordenar_por: novoOrdenamento,
+        }));
+    };
+
     const mudarPagina = (novaPagina) => {
+        salvarScrollSalvo(0);
         setMeta((prev) => ({ ...prev, page: novaPagina }));
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -258,8 +297,8 @@ const Home = () => {
                 <Filtros
                     opcoes={opcoesFiltro}
                     filtros={filtros}
-                    setFiltros={handleFiltrosChange}
-                    onLimpar={limparFiltros}
+                    onAplicar={handleAplicarFiltros}
+                    onLimpar={handleLimparFiltros}
                     abertoMobile={abertoMobile}
                     setAbertoMobile={setAbertoMobile}
                     totalResultados={meta.total}
@@ -307,12 +346,7 @@ const Home = () => {
                                 <select
                                     id="seletor-ordenar-por"
                                     value={filtros.ordenar_por}
-                                    onChange={(e) =>
-                                        handleFiltrosChange((prev) => ({
-                                            ...prev,
-                                            ordenar_por: e.target.value,
-                                        }))
-                                    }
+                                    onChange={(e) => handleOrdenarPor(e.target.value)}
                                     className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 focus:bg-white focus:border-blue-600 outline-none"
                                 >
                                     <option value="">Mais Relevantes (Destaques & Populares)</option>
@@ -345,7 +379,7 @@ const Home = () => {
                                 ))}
                                 <button
                                     type="button"
-                                    onClick={limparFiltros}
+                                    onClick={handleLimparFiltros}
                                     className="text-xs font-semibold text-gray-500 hover:text-red-600 ml-2 transition-colors"
                                 >
                                     Limpar todos
@@ -358,7 +392,7 @@ const Home = () => {
                         loading={loading}
                         erro={erro}
                         imoveis={imoveis}
-                        onLimparFiltros={limparFiltros}
+                        onLimparFiltros={handleLimparFiltros}
                     />
 
                     {!loading && meta.pages > 1 && (

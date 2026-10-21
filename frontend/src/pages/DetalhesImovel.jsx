@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getImovelDetalhes, registrarCliqueLead } from '../services/api';
+import { normalizarUrlFoto, FOTO_FALLBACK } from '../utils/imagem';
 import {
     MapPin,
     BedDouble,
@@ -60,8 +61,8 @@ const formatarEnderecoCompleto = (imovel) => {
 };
 
 const GaleriaFotos = ({ fotos, fotoAtiva, onSelectFoto }) => {
-    const listaFotos = Array.isArray(fotos) ? fotos : [];
-    const fotoPrincipal = listaFotos[fotoAtiva] || 'https://placehold.co/800x600?text=Sem+Foto';
+    const listaFotos = Array.isArray(fotos) ? fotos.map(normalizarUrlFoto) : [];
+    const fotoPrincipal = listaFotos[fotoAtiva] || FOTO_FALLBACK;
 
     return (
         <>

@@ -37,21 +37,22 @@ const Header = () => {
     }, []);
 
     return (
-        <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-95">
-            <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-                <Link to="/" className="flex items-center gap-2 hover:opacity-85 transition-opacity shrink-0">
-                    <div className="bg-blue-600 p-1.5 rounded-lg shadow-sm">
-                        <Home className="text-white" size={20} />
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-95 w-full">
+            <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1 sm:gap-3">
+                <Link to="/" className="flex items-center gap-1.5 sm:gap-2 hover:opacity-85 transition-opacity shrink-0">
+                    <div className="bg-blue-600 p-1 sm:p-1.5 rounded-lg shadow-sm">
+                        <Home className="text-white w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
-                    <h1 className="text-xl font-extrabold text-blue-600 tracking-tight">
+                    <h1 className="text-base sm:text-xl font-extrabold text-blue-600 tracking-tight whitespace-nowrap">
                         Hub<span className="text-gray-900">Imóveis</span>
                     </h1>
                 </Link>
 
-                <nav className="flex items-center gap-1.5 sm:gap-2">
+                <nav className="flex items-center gap-1 sm:gap-2 shrink-0">
                     <Link
                         to="/"
-                        className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                        title="Buscar Imóveis"
+                        className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                             isBusca
                                 ? 'bg-blue-50 text-blue-700 border border-blue-200/80'
                                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -59,19 +60,19 @@ const Header = () => {
                     >
                         <Search size={15} />
                         <span className="hidden sm:inline">Buscar Imóveis</span>
-                        <span className="sm:hidden">Buscar</span>
                     </Link>
 
                     <Link
                         to="/match"
-                        className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                        title="Modo Match"
+                        className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                             isMatch
                                 ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-sm'
                                 : 'text-rose-600 hover:bg-rose-50 border border-rose-200/70'
                         }`}
                     >
                         <Flame size={15} />
-                        <span>Modo Match</span>
+                        <span><span className="hidden sm:inline">Modo </span>Match</span>
                         {totalMatches > 0 && (
                             <span
                                 className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
@@ -88,7 +89,8 @@ const Header = () => {
                     {autenticadoCorretor && (
                         <Link
                             to="/estatisticas"
-                            className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                            title="Mercado & Dados Estatísticos"
+                            className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                                 isEstatisticas
                                     ? 'bg-blue-600 text-white shadow-sm'
                                     : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/60 border border-transparent hover:border-blue-100'
@@ -96,13 +98,14 @@ const Header = () => {
                         >
                             <BarChart3 size={15} />
                             <span className="hidden md:inline">Mercado & Dados</span>
-                            <span className="md:hidden">Dados</span>
+                            <span className="hidden sm:inline md:hidden">Dados</span>
                         </Link>
                     )}
 
                     <Link
                         to={autenticadoCorretor ? '/corretor' : '/corretor/login'}
-                        className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                        title={autenticadoCorretor ? 'Painel do Corretor' : 'Área do Corretor'}
+                        className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                             isCorretor
                                 ? 'bg-slate-900 text-white shadow-sm'
                                 : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/80'
@@ -112,7 +115,7 @@ const Header = () => {
                         <span className="hidden md:inline">
                             {autenticadoCorretor ? 'Painel Corretor' : 'Área do Corretor'}
                         </span>
-                        <span className="md:hidden">Corretor</span>
+                        <span className="hidden sm:inline md:hidden">Corretor</span>
                     </Link>
                 </nav>
             </div>

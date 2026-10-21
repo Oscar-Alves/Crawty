@@ -1,6 +1,7 @@
 import re
 import unicodedata
 from typing import Dict, Any, Tuple, Optional
+from backend.foto_utils import normalizar_url_foto
 
 CIDADE_SJDR = "São João del Rei"
 CIDADE_TREMEMBE = "Tremembé"
@@ -662,6 +663,10 @@ def normalizar_imovel(item: Dict[str, Any]) -> Dict[str, Any]:
 
     if item.get("modalidade"):
         item["modalidade"] = str(item["modalidade"]).strip().upper()
+
+    fotos_raw = item.get("fotos")
+    if isinstance(fotos_raw, list):
+        item["fotos"] = [normalizar_url_foto(f) for f in fotos_raw if f]
 
     _sanitizar_campos_numericos(item, extras)
 

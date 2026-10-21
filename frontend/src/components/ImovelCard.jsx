@@ -1,7 +1,6 @@
 import { MapPin, BedDouble, Bath, Car, Ruler, TrendingDown, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-const FOTO_FALLBACK = 'https://placehold.co/600x400.png?text=Sem+Foto';
+import { normalizarUrlFoto, FOTO_FALLBACK } from '../utils/imagem';
 
 const formatMoney = (value) => {
     if (!value || value <= 0) return 'Sob Consulta';
@@ -28,7 +27,7 @@ const obterEnderecoCurto = (imovel) => {
 };
 
 const obterMetricasCard = (imovel) => {
-    const fotoCapa = imovel.fotos?.length > 0 ? imovel.fotos[0] : FOTO_FALLBACK;
+    const fotoCapa = imovel.fotos?.length > 0 ? normalizarUrlFoto(imovel.fotos[0]) : FOTO_FALLBACK;
     const subtipo = imovel.extras?.subtipo;
     const tipoLower = (imovel.tipo || '').toLowerCase();
     const exibirSubtipo = Boolean(
@@ -201,6 +200,8 @@ const ImovelCard = ({ imovel }) => {
                     </div>
                     <Link
                         to={`/imovel/${imovel.id_unico}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="bg-gray-900 hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-semibold transition-colors shrink-0"
                     >
                         Ver detalhes

@@ -317,6 +317,8 @@ const AcoesImovelCarteira = ({
 
             <Link
                 to={`/imovel/${imovel.id_unico}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 title="Visualizar página pública do imóvel"
                 className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
             >
