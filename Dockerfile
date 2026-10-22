@@ -5,18 +5,18 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --only-binary :all: \
+    beautifulsoup4==4.14.3 \
     fastapi==0.136.1 \
-    uvicorn==0.46.0 \
+    pydantic==2.13.4 \
     pymongo==4.17.0 \
     python-dotenv==1.2.2 \
-    pydantic==2.13.4 \
     requests==2.34.1 \
-    beautifulsoup4==4.14.3
+    uvicorn==0.46.0
 
 # Copia a pasta backend para dentro de /app/backend
 COPY backend/ ./backend/
 
-# O PULO DO GATO: Adiciona a pasta /app/backend à lista de locais onde o Python busca arquivos
+# Adiciona tanto /app quanto /app/backend ao PYTHONPATH para compatibilidade total de imports
 ENV PYTHONPATH=/app:/app/backend
 
 # Garante que a saída do log apareça imediatamente (sem buffer)

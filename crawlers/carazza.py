@@ -1,12 +1,10 @@
 import logging
 import re
 import requests
-import urllib3
 from bs4 import BeautifulSoup
 from backend.normalizer import normalizar_imovel
 from crawlers.html_utils import DEFAULT_HEADERS, extrair_preco, extrair_int
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
@@ -25,7 +23,7 @@ class CarazzaCrawler:
         match_q = re.search(r"\((\d+)\s*Qts?\)", h3_txt, re.I)
         if match_q:
             quartos = int(match_q.group(1))
-        tipo = re.sub(r"\(.*?\)", "", h3_txt).strip() or "Imóvel"
+        tipo = re.sub(r"\([^)]*\)", "", h3_txt).strip() or "Imóvel"
         return tipo, quartos
 
     def _padronizar_card(self, prop, modalidade_padrao="VENDA"):
@@ -94,7 +92,6 @@ class CarazzaCrawler:
                     self.destaques_url,
                     data={"FiltroBusca": dest_id},
                     headers=DEFAULT_HEADERS,
-                    verify=False,
                     timeout=20,
                 )
                 if resp.status_code == 200:
@@ -108,7 +105,6 @@ class CarazzaCrawler:
                     self.busca_url,
                     data={"id_modalidade": id_mod, "codigo": ""},
                     headers=DEFAULT_HEADERS,
-                    verify=False,
                     timeout=20,
                 )
                 if resp.status_code == 200:

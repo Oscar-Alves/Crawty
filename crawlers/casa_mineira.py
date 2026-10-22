@@ -28,24 +28,26 @@ class CasaMineiraCrawler:
         preco = float(prices[0].get("amount") or 0.0) if prices else 0.0
         return preco, modalidade
 
+    def _atribuir_feature(self, specs: dict, label: str, val):
+        if "total" in label:
+            specs["area_total"] = extrair_float(val)
+        elif "útil" in label or "util" in label:
+            specs["area_util"] = extrair_float(val)
+        elif "quarto" in label or "dorm" in label:
+            specs["quartos"] = extrair_int(val)
+        elif "banheiro" in label:
+            specs["banheiros"] = extrair_int(val)
+        elif "vaga" in label or "garag" in label:
+            specs["vagas"] = extrair_int(val)
+        elif "suíte" in label or "suite" in label:
+            specs["suites"] = extrair_int(val)
+
     def _extrair_features(self, post: dict):
         feats = post.get("mainFeatures") or {}
         specs = {"area_total": 0.0, "area_util": 0.0, "quartos": 0, "banheiros": 0, "vagas": 0, "suites": 0}
         for f in feats.values():
             label = (f.get("label") or "").lower()
-            val = f.get("value")
-            if "total" in label:
-                specs["area_total"] = extrair_float(val)
-            elif "útil" in label or "util" in label:
-                specs["area_util"] = extrair_float(val)
-            elif "quarto" in label or "dorm" in label:
-                specs["quartos"] = extrair_int(val)
-            elif "banheiro" in label:
-                specs["banheiros"] = extrair_int(val)
-            elif "vaga" in label or "garag" in label:
-                specs["vagas"] = extrair_int(val)
-            elif "suíte" in label or "suite" in label:
-                specs["suites"] = extrair_int(val)
+            self._atribuir_feature(specs, label, f.get("value"))
         if not specs["area_util"]:
             specs["area_util"] = specs["area_total"]
         if not specs["area_total"]:
@@ -99,6 +101,20 @@ class CasaMineiraCrawler:
             "extras": {"suites": specs["suites"]}
         })
 
+    def _extrair_preloaded_state(self, html: str) -> dict:
+        marcador = "window.__PRELOADED_STATE__"
+        if marcador not in html:
+            return {}
+        idx = html.find(marcador)
+        brace_idx = html.find("{", idx)
+        if brace_idx == -1:
+            return {}
+        try:
+            state, _ = json.JSONDecoder().raw_decode(html[brace_idx:])
+            return state if isinstance(state, dict) else {}
+        except Exception:
+            return {}
+
     def buscar_imoveis(self):
         imoveis = []
         vistos = set()
@@ -107,14 +123,7 @@ class CasaMineiraCrawler:
             resp = requests.get(self.list_url, headers=DEFAULT_HEADERS, timeout=25)
             if resp.status_code != 200:
                 return imoveis
-            match = re.search(
-                r"window\.__PRELOADED_STATE__\s*=\s*(\{.*?\});\s*(?:window\.|</script>)",
-                resp.text,
-                re.DOTALL,
-            )
-            if not match:
-                return imoveis
-            state = json.loads(match.group(1))
+            state = self._extrair_preloaded_state(resp.text)
             postings = (state.get("listStore") or {}).get("listPostings") or []
             for post in postings:
                 try:

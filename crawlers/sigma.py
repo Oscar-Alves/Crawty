@@ -39,28 +39,14 @@ class SigmaCrawler:
                 specs["vagas"] = specs["vagas"] or extrair_int(txt)
         return specs
 
-    def _padronizar_card(self, card, modalidade_padrao: str):
-        ref_el = card.select_one(".ref-modern")
-        ref_txt = ref_el.get_text(" ", strip=True) if ref_el else ""
-        cod = re.sub(r"(?i)^ref[:\s]*", "", ref_txt).strip()
+    @staticmethod
+    def _obter_texto(element, seletor: str, padrao: str = "") -> str:
+        if not element:
+            return padrao
+        el = element.select_one(seletor)
+        return el.get_text(" ", strip=True) if el else padrao
 
-        a_el = card.select_one(".property-content a")
-        href = a_el.get("href", "") if a_el else ""
-        if not cod:
-            cod = str(extrair_int(href))
-        if not cod or cod == "0":
-            return None
-
-        tipo_el = card.select_one(".property-type")
-        tipo = tipo_el.get_text(" ", strip=True) if tipo_el else "Imóvel"
-
-        titulo_el = card.select_one(".property-title-modern")
-        titulo = titulo_el.get_text(" ", strip=True) if titulo_el else f"{tipo} {cod}"
-        bairro, cidade = self._extrair_local_titulo(titulo)
-
-        preco_el = card.select_one(".price-value")
-        preco = extrair_preco(preco_el.get_text(" ", strip=True) if preco_el else "")
-
+    def _extrair_fotos(self, card) -> list:
         fotos = []
         for img in card.select(".property-image-wrapper img"):
             src = img.get("src", "")
@@ -68,7 +54,29 @@ class SigmaCrawler:
                 full_src = f"{self.site_url}{src}" if src.startswith("/") else src
                 if full_src not in fotos:
                     fotos.append(full_src)
+        return fotos
 
+    @staticmethod
+    def _extrair_codigo(card, href: str) -> str:
+        ref_el = card.select_one(".ref-modern")
+        if ref_el:
+            cod = re.sub(r"(?i)^ref[:\s]*", "", ref_el.get_text(" ", strip=True)).strip()
+            if cod:
+                return cod
+        return str(extrair_int(href) or "")
+
+    def _padronizar_card(self, card, modalidade_padrao: str):
+        a_el = card.select_one(".property-content a")
+        href = a_el.get("href", "") if a_el else ""
+        cod = self._extrair_codigo(card, href)
+        if not cod or cod == "0":
+            return None
+
+        tipo = self._obter_texto(card, ".property-type", "Imóvel")
+        titulo = self._obter_texto(card, ".property-title-modern", f"{tipo} {cod}")
+        bairro, cidade = self._extrair_local_titulo(titulo)
+        preco = extrair_preco(self._obter_texto(card, ".price-value"))
+        fotos = self._extrair_fotos(card)
         specs = self._extrair_features(card)
         link = f"{self.site_url}{href}" if href.startswith("/") else href
 

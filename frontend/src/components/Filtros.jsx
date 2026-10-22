@@ -49,12 +49,33 @@ let memoriaFiltros = { ...FILTROS_INICIAIS };
 let memoriaPagina = 1;
 let memoriaScroll = 0;
 
+export const sanitizarFiltros = (filtrosObj) => {
+    if (!filtrosObj || typeof filtrosObj !== 'object') {
+        return { ...FILTROS_INICIAIS };
+    }
+    const limpo = { ...FILTROS_INICIAIS };
+    for (const chave of Object.keys(FILTROS_INICIAIS)) {
+        if (Object.prototype.hasOwnProperty.call(filtrosObj, chave)) {
+            const val = filtrosObj[chave];
+            if (typeof FILTROS_INICIAIS[chave] === 'boolean') {
+                limpo[chave] = Boolean(val);
+            } else if (typeof val === 'string' || typeof val === 'number') {
+                limpo[chave] = String(val).slice(0, 120);
+            }
+        }
+    }
+    if (limpo.ordenar_por === 'recentes') {
+        limpo.ordenar_por = 'recente';
+    }
+    return limpo;
+};
+
 export const obterFiltrosSalvos = () => {
     try {
         const salvo = sessionStorage.getItem(CHAVE_STORAGE_FILTROS);
         if (salvo) {
             const parsed = JSON.parse(salvo);
-            return { ...FILTROS_INICIAIS, ...parsed };
+            return sanitizarFiltros(parsed);
         }
     } catch {
         // fallback
@@ -63,13 +84,10 @@ export const obterFiltrosSalvos = () => {
 };
 
 export const salvarFiltrosSalvos = (novosFiltros) => {
-    const mesclado = { ...FILTROS_INICIAIS, ...novosFiltros };
-    if (mesclado.ordenar_por === 'recentes') {
-        mesclado.ordenar_por = 'recente';
-    }
-    memoriaFiltros = mesclado;
+    const seguro = sanitizarFiltros(novosFiltros);
+    memoriaFiltros = seguro;
     try {
-        sessionStorage.setItem(CHAVE_STORAGE_FILTROS, JSON.stringify(mesclado));
+        sessionStorage.setItem(CHAVE_STORAGE_FILTROS, JSON.stringify(seguro));
     } catch {
         // fallback
     }
@@ -90,7 +108,7 @@ export const obterPaginaSalva = () => {
 
 export const salvarPaginaSalva = (pagina) => {
     const num = Number.parseInt(String(pagina), 10);
-    const valida = Number.isNaN(num) || num < 1 ? 1 : num;
+    const valida = Number.isNaN(num) || num < 1 ? 1 : Math.min(num, 5000);
     memoriaPagina = valida;
     try {
         sessionStorage.setItem(CHAVE_STORAGE_PAGINA, String(valida));
@@ -104,7 +122,7 @@ export const obterScrollSalvo = () => {
         const salvo = sessionStorage.getItem(CHAVE_STORAGE_SCROLL);
         if (salvo) {
             const num = Number.parseInt(salvo, 10);
-            if (!Number.isNaN(num) && num >= 0) return num;
+            if (!Number.isNaN(num) && num >= 0) return Math.min(num, 100000);
         }
     } catch {
         // fallback
@@ -114,7 +132,7 @@ export const obterScrollSalvo = () => {
 
 export const salvarScrollSalvo = (pos) => {
     const num = Number.parseInt(String(pos), 10);
-    const valida = Number.isNaN(num) || num < 0 ? 0 : num;
+    const valida = Number.isNaN(num) || num < 0 ? 0 : Math.min(num, 100000);
     memoriaScroll = valida;
     try {
         sessionStorage.setItem(CHAVE_STORAGE_SCROLL, String(valida));

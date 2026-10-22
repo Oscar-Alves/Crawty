@@ -1,11 +1,9 @@
 import logging
 import requests
-import urllib3
 from bs4 import BeautifulSoup
 from backend.normalizer import normalizar_imovel
 from crawlers.html_utils import DEFAULT_HEADERS, extrair_preco, extrair_int
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
@@ -26,44 +24,56 @@ class CelsoJrCrawler:
             return partes[0], f"{tipo} em {bairro}"
         return loc_txt or "São João del Rei", f"{tipo} em {bairro}"
 
-    def _padronizar_card(self, block):
-        info_el = block.select_one("ul.info")
-        a_el = block.find("a", href=True)
-        href = a_el.get("href", "") if a_el else ""
-        cod = str(extrair_int(info_el.get_text(" ", strip=True) if info_el else "") or extrair_int(href))
-        if not cod or cod == "0":
-            return None
+    @staticmethod
+    def _obter_texto(element, seletor: str, padrao: str = "") -> str:
+        if not element:
+            return padrao
+        el = element.select_one(seletor)
+        return el.get_text(" ", strip=True) if el else padrao
 
+    @staticmethod
+    def _extrair_fotos(block) -> list:
         fotos = []
         for img in block.select(".image-box img"):
             src = img.get("src", "")
             if src and src not in fotos:
                 fotos.append(src)
+        return fotos
 
+    @staticmethod
+    def _extrair_modalidade(block) -> str:
         feat_el = block.select_one("span.featured") or block.select_one("span.for")
         mod_txt = (feat_el.get_text(" ", strip=True) if feat_el else "VENDA").upper()
-        modalidade = "ALUGUEL" if "ALUG" in mod_txt else "VENDA"
+        return "ALUGUEL" if "ALUG" in mod_txt else "VENDA"
 
-        tag_el = block.select_one("ul.tags li")
-        tipo = tag_el.get_text(" ", strip=True) if tag_el else "Imóvel"
+    def _determinar_link(self, href: str, cod: str) -> str:
+        if href.startswith("/"):
+            return f"{self.site_url}{href}"
+        return href or f"{self.site_url}/imovel/{cod}"
 
-        h3_el = block.select_one(".lower-content h3")
-        bairro = h3_el.get_text(" ", strip=True) if h3_el else "Não Informado"
+    def _padronizar_card(self, block):
+        info_txt = self._obter_texto(block, "ul.info")
+        a_el = block.find("a", href=True)
+        href = a_el.get("href", "") if a_el else ""
+        cod = str(extrair_int(info_txt) or extrair_int(href))
+        if not cod or cod == "0":
+            return None
 
-        loc_el = block.select_one(".lucation")
-        loc_txt = loc_el.get_text(" ", strip=True) if loc_el else ""
+        tipo = self._obter_texto(block, "ul.tags li", "Imóvel")
+        bairro = self._obter_texto(block, ".lower-content h3", "Não Informado")
+        loc_txt = self._obter_texto(block, ".lucation")
         cidade, titulo = self._extrair_cidade_e_titulo(loc_txt, tipo, bairro)
 
-        price_el = block.select_one(".property-price")
-        preco = extrair_preco(price_el.get_text(" ", strip=True) if price_el else "")
-        link = f"{self.site_url}{href}" if href.startswith("/") else (href or f"{self.site_url}/imovel/{cod}")
+        preco_txt = self._obter_texto(block, ".property-price")
+        preco = extrair_preco(preco_txt)
+        link = self._determinar_link(href, cod)
 
         return normalizar_imovel({
             "id_unico": f"CelsoJr_{cod}",
             "imobiliaria": "Celso Jr. Imóveis",
             "codigo_original": cod,
             "titulo": titulo,
-            "modalidade": modalidade,
+            "modalidade": self._extrair_modalidade(block),
             "tipo": tipo,
             "preco": preco,
             "bairro": bairro,
@@ -74,7 +84,7 @@ class CelsoJrCrawler:
             "area_util": 0.0,
             "area_total": 0.0,
             "link": link,
-            "fotos": fotos,
+            "fotos": self._extrair_fotos(block),
             "extras": {}
         })
 
@@ -101,7 +111,6 @@ class CelsoJrCrawler:
                     self.ajax_url,
                     data={"page": page},
                     headers=DEFAULT_HEADERS,
-                    verify=False,
                     timeout=20,
                 )
                 if resp.status_code != 200 or not resp.text.strip():

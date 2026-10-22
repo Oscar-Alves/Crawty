@@ -31,39 +31,43 @@ class LCImobiliariaCrawler:
         textos = [t.strip() for t in link_el.stripped_strings]
         return textos[-1] if len(textos) > 1 else "Não Informado"
 
+    @staticmethod
+    def _obter_texto(el, seletor: str, padrao: str = "") -> str:
+        if not el:
+            return padrao
+        target = el.select_one(seletor)
+        return target.get_text(" ", strip=True) if target else padrao
+
+    @staticmethod
+    def _extrair_codigo(art, href: str) -> str:
+        for h3 in art.select("h3.attribute-title"):
+            txt = h3.get_text(" ", strip=True)
+            if "Cód" in txt or "Cod" in txt:
+                return str(extrair_int(txt))
+        return str(extrair_int(href) or "")
+
     def _padronizar_card(self, art):
         img_a = art.select_one(".property-images a")
         href = img_a.get("href", "") if img_a else ""
         img_el = art.select_one(".property-images img")
         foto = img_el.get("src", "") if img_el else ""
 
-        cod_text = ""
-        for h3 in art.select("h3.attribute-title"):
-            txt = h3.get_text(" ", strip=True)
-            if "Cód" in txt or "Cod" in txt:
-                cod_text = txt
-                break
-        cod = str(extrair_int(cod_text) or extrair_int(href))
+        cod = self._extrair_codigo(art, href)
         if not cod or cod == "0":
             return None
 
         title_a = art.select_one(".property-attribute h3.attribute-title a")
-        bold_el = title_a.find("b") if title_a else None
-        modalidade, tipo = self._extrair_modalidade_e_tipo(bold_el.get_text(" ", strip=True) if bold_el else "")
+        bold_txt = self._obter_texto(title_a, "b")
+        modalidade, tipo = self._extrair_modalidade_e_tipo(bold_txt)
         bairro = self._extrair_bairro_card(title_a)
         titulo = (title_a.get("title") if title_a else None) or f"{tipo} em {bairro}"
 
-        cidade_el = art.select_one(".attribute-city")
-        cidade = cidade_el.get_text(strip=True) if cidade_el else "São João del Rei"
+        cidade = self._obter_texto(art, ".attribute-city", "São João del Rei")
+        preco = extrair_preco(self._obter_texto(art, ".attr-pricing"))
 
-        preco_el = art.select_one(".attr-pricing")
-        preco = extrair_preco(preco_el.get_text(" ", strip=True) if preco_el else "")
-
-        area_el = art.select_one(".meta-size .meta-text")
-        quartos_el = art.select_one(".meta-bedroom .meta-text")
-        banheiros_el = art.select_one(".meta-bathroom .meta-text")
-
-        area = extrair_float(area_el.get_text(strip=True) if area_el else "")
+        area = extrair_float(self._obter_texto(art, ".meta-size .meta-text"))
+        quartos = extrair_int(self._obter_texto(art, ".meta-bedroom .meta-text"))
+        banheiros = extrair_int(self._obter_texto(art, ".meta-bathroom .meta-text"))
         link_completo = f"{self.site_url}{href}" if href.startswith("/") else href
 
         return normalizar_imovel({
@@ -76,8 +80,8 @@ class LCImobiliariaCrawler:
             "preco": preco,
             "bairro": bairro,
             "cidade": cidade,
-            "quartos": extrair_int(quartos_el.get_text(strip=True) if quartos_el else ""),
-            "banheiros": extrair_int(banheiros_el.get_text(strip=True) if banheiros_el else ""),
+            "quartos": quartos,
+            "banheiros": banheiros,
             "vagas": 0,
             "area_util": area,
             "area_total": area,

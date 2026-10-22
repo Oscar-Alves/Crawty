@@ -18,24 +18,28 @@ class GuilhermeAugustoCrawler:
         self.site_url = "https://www.guilhermeaugustoimoveis.com.br"
         self.search_url = f"{self.site_url}/php/search-base64.php"
 
+    @staticmethod
+    def _atribuir_feature(specs: dict, title: str, txt: str):
+        if "total" in title:
+            specs["area_total"] = extrair_float(txt)
+        elif any(k in title for k in ("útil", "util", "constru", "área", "area")):
+            specs["area_util"] = extrair_float(txt)
+        elif any(k in title for k in ("suíte", "suite")):
+            specs["suites"] = extrair_int(txt)
+        elif any(k in title for k in ("quarto", "dorm")):
+            specs["quartos"] = extrair_int(txt)
+        elif "banh" in title:
+            specs["banheiros"] = extrair_int(txt)
+        elif any(k in title for k in ("vaga", "garag")):
+            specs["vagas"] = extrair_int(txt)
+
     def _extrair_features(self, card):
         specs = {"quartos": 0, "banheiros": 0, "vagas": 0, "area_total": 0.0, "area_util": 0.0, "suites": 0}
         for wrap in card.select(".c49-property-number-wrap"):
             title = (wrap.get("title") or wrap.get("data-original-title") or "").lower()
             num_el = wrap.select_one(".c49-property-number")
             txt = num_el.get_text(" ", strip=True) if num_el else ""
-            if "total" in title:
-                specs["area_total"] = extrair_float(txt)
-            elif "útil" in title or "util" in title or "constru" in title or "área" in title or "area" in title:
-                specs["area_util"] = extrair_float(txt)
-            elif "suíte" in title or "suite" in title:
-                specs["suites"] = extrair_int(txt)
-            elif "quarto" in title or "dorm" in title:
-                specs["quartos"] = extrair_int(txt)
-            elif "banh" in title:
-                specs["banheiros"] = extrair_int(txt)
-            elif "vaga" in title or "garag" in title:
-                specs["vagas"] = extrair_int(txt)
+            self._atribuir_feature(specs, title, txt)
         if not specs["area_util"]:
             specs["area_util"] = specs["area_total"]
         if not specs["area_total"]:

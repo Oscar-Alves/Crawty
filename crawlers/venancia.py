@@ -1,11 +1,9 @@
 import logging
 import requests
-import urllib3
 from bs4 import BeautifulSoup
 from backend.normalizer import normalizar_imovel
 from crawlers.html_utils import DEFAULT_HEADERS, extrair_preco, extrair_float, extrair_int
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
@@ -50,6 +48,22 @@ class VenanciaCrawler:
             return round(val * 10000.0, 2)
         return val
 
+    @staticmethod
+    def _obter_texto(el, seletor: str, padrao: str = "") -> str:
+        if not el:
+            return padrao
+        target = el.select_one(seletor)
+        return target.get_text(strip=True) if target else padrao
+
+    def _extrair_foto_url(self, card) -> list:
+        foto_el = card.select_one(".foto-imovel img")
+        foto_src = foto_el.get("src", "") if foto_el else ""
+        if not foto_src:
+            return []
+        if foto_src.startswith("http"):
+            return [foto_src]
+        return [f"{self.site_url}/{foto_src.lstrip('/')}"]
+
     def _padronizar_card(self, card, modalidade_padrao: str):
         a_el = card.find("a")
         id_attr = a_el.get("id", "") if a_el else ""
@@ -62,27 +76,20 @@ class VenanciaCrawler:
         tipo_raw = (ico_img.get("title") if ico_img else None) or "Imóvel"
         tipo = tipo_raw.split("(")[0].strip()
 
-        ico_span = card.select_one(".ico-tipo span")
-        area = self._extrair_area(ico_span.get_text(strip=True) if ico_span else "")
+        ico_span_txt = self._obter_texto(card, ".ico-tipo span")
+        area = self._extrair_area(ico_span_txt)
 
-        mod_el = card.select_one(".texto_imo1")
-        mod_txt = (mod_el.get_text(strip=True) if mod_el else modalidade_padrao).upper()
+        mod_txt = self._obter_texto(card, ".texto_imo1", modalidade_padrao).upper()
         modalidade = "ALUGUEL" if "ALUG" in mod_txt else "VENDA"
 
         textos2 = card.select(".texto_imo2")
         preco_txt = textos2[0].get_text(strip=True) if textos2 else ""
         preco = extrair_preco(preco_txt)
 
-        nome_el = card.select_one(".nome-imovel")
-        bairro = nome_el.get_text(strip=True) if nome_el else "Não Informado"
-
-        cid_el = card.select_one(".texto_imo3")
-        cidade_raw = cid_el.get_text(strip=True) if cid_el else "São João del Rei"
+        bairro = self._obter_texto(card, ".nome-imovel", "Não Informado")
+        cidade_raw = self._obter_texto(card, ".texto_imo3", "São João del Rei")
         cidade = cidade_raw.split("-")[0].strip()
-
-        foto_el = card.select_one(".foto-imovel img")
-        foto_src = foto_el.get("src", "") if foto_el else ""
-        foto = f"{self.site_url}/{foto_src.lstrip('/')}" if foto_src and not foto_src.startswith("http") else foto_src
+        fotos = self._extrair_foto_url(card)
 
         return normalizar_imovel({
             "id_unico": f"Venancia_{cod}",
@@ -100,7 +107,7 @@ class VenanciaCrawler:
             "area_util": area,
             "area_total": area,
             "link": f"{self.site_url}/?cod={cod}",
-            "fotos": [foto] if foto else [],
+            "fotos": fotos,
             "extras": {"suites": specs["suites"]}
         })
 
@@ -112,7 +119,6 @@ class VenanciaCrawler:
                 self.ajax_url,
                 data={"id_modalidade": id_mod, "palavra": "", "bairro": "", "cidade": "", "estado": "mg"},
                 headers=DEFAULT_HEADERS,
-                verify=False,
                 timeout=25,
             )
             resp.encoding = "utf-8"

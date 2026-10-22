@@ -1,10 +1,8 @@
 import logging
 import requests
-import urllib3
 from backend.normalizer import normalizar_imovel
 from crawlers.html_utils import extrair_float, extrair_int
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 TERRA_TOKEN = (
@@ -75,7 +73,6 @@ class TerraDosImoveisCrawler:
                 f"{self.api_base}/cidades/filtrar/tem-imovel",
                 json={"modalidade": modalidade_nome},
                 headers=self.headers,
-                verify=False,
                 timeout=15,
             )
             if r.status_code in (200, 201) and isinstance(r.json(), list):
@@ -111,7 +108,6 @@ class TerraDosImoveisCrawler:
                     url,
                     json={"modalidade": [modalidade_nome]},
                     headers=self.headers,
-                    verify=False,
                     timeout=20,
                 )
                 if resp.status_code not in (200, 201):

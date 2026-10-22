@@ -47,6 +47,22 @@ class MarceloCrawler:
                 dados["nums"].append(tok)
         return dados
 
+    @staticmethod
+    def _determinar_tipo(terms: list) -> str:
+        if len(terms) > 1:
+            return terms[1]
+        if terms:
+            return terms[0]
+        return "Imóvel"
+
+    @staticmethod
+    def _determinar_area(nums: list) -> float:
+        if len(nums) == 1:
+            return extrair_float(nums[0])
+        if len(nums) >= 4:
+            return extrair_float(nums[-1])
+        return 0.0
+
     def _padronizar_card(self, card, modalidade: str):
         for s in card.find_all("style"):
             s.decompose()
@@ -58,7 +74,7 @@ class MarceloCrawler:
         foto = img_el.get("src", "") if img_el else ""
 
         terms = [t.get_text(strip=True) for t in card.select(".jet-listing-dynamic-terms__link")]
-        tipo = terms[1] if len(terms) > 1 else (terms[0] if terms else "Imóvel")
+        tipo = self._determinar_tipo(terms)
 
         tokens = [t.strip() for t in card.get_text("|", strip=True).split("|") if t.strip()]
         dados = self._extrair_campos_texto(tokens)
@@ -67,7 +83,7 @@ class MarceloCrawler:
             return None
 
         nums = dados["nums"]
-        area = extrair_float(nums[0]) if len(nums) == 1 else (extrair_float(nums[-1]) if len(nums) >= 4 else 0.0)
+        area = self._determinar_area(nums)
         quartos = extrair_int(nums[0]) if len(nums) >= 2 else 0
         banheiros = extrair_int(nums[1]) if len(nums) >= 2 else 0
         vagas = extrair_int(nums[2]) if len(nums) >= 3 else 0

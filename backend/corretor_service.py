@@ -12,9 +12,7 @@ except ImportError:
     from backend.normalizer import normalizar_cidade, normalizar_bairro, normalizar_localizacao
 
 
-PREFIXO_HTTP = "http://"
-PREFIXO_HTTPS = "https://"
-PREFIXOS_WEB = (PREFIXO_HTTP, PREFIXO_HTTPS)
+PADRAO_URL_WEB = re.compile(r"^https?://", re.IGNORECASE)
 
 
 def construir_filtro_carteira_corretor(corretor: Dict[str, Any]) -> Dict[str, Any]:
@@ -51,7 +49,7 @@ def _limpar_lista_fotos(fotos: List[str]) -> List[str]:
     vistas = set()
     for url in fotos or []:
         texto = (url or "").strip()
-        if texto.startswith(PREFIXOS_WEB) and texto not in vistas:
+        if PADRAO_URL_WEB.match(texto) and texto not in vistas:
             vistas.add(texto)
             limpas.append(texto)
     return limpas
@@ -78,7 +76,7 @@ def gerar_link_anuncio_corretor(
     codigo_original: str,
 ) -> str:
     link_ext = (dados.link_externo or "").strip()
-    if link_ext.startswith(PREFIXOS_WEB):
+    if PADRAO_URL_WEB.match(link_ext):
         return link_ext
 
     whatsapp_bruto = (
@@ -99,7 +97,7 @@ def gerar_link_anuncio_corretor(
         return f"https://wa.me/{digitos}?text={quote(mensagem)}"
 
     site_corretor = (corretor.get("site_externo") or "").strip()
-    if site_corretor.startswith(PREFIXOS_WEB):
+    if PADRAO_URL_WEB.match(site_corretor):
         return site_corretor
 
     return "#contato-direto"

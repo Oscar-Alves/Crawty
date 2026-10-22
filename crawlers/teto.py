@@ -15,20 +15,24 @@ class TetoCrawler:
     def __init__(self):
         self.site_url = "https://www.teto-imoveis.com"
 
+    @staticmethod
+    def _atribuir_feature(specs: dict, txt: str):
+        if any(k in txt for k in ("área", "area", "m²")):
+            specs["area"] = specs["area"] or extrair_float(txt)
+        elif any(k in txt for k in ("suíte", "suite")):
+            specs["suites"] = specs["suites"] or extrair_int(txt)
+        elif any(k in txt for k in ("quarto", "dorm")):
+            specs["quartos"] = specs["quartos"] or extrair_int(txt)
+        elif "banh" in txt:
+            specs["banheiros"] = specs["banheiros"] or extrair_int(txt)
+        elif any(k in txt for k in ("garag", "vaga")):
+            specs["vagas"] = specs["vagas"] or extrair_int(txt)
+
     def _extrair_features(self, card):
         specs = {"quartos": 0, "banheiros": 0, "vagas": 0, "area": 0.0, "suites": 0}
         for feat in card.select(".imovelcard__info__feature"):
             txt = feat.get_text(" ", strip=True).lower()
-            if "área" in txt or "area" in txt or "m²" in txt:
-                specs["area"] = specs["area"] or extrair_float(txt)
-            elif "suíte" in txt or "suite" in txt:
-                specs["suites"] = specs["suites"] or extrair_int(txt)
-            elif "quarto" in txt or "dorm" in txt:
-                specs["quartos"] = specs["quartos"] or extrair_int(txt)
-            elif "banh" in txt:
-                specs["banheiros"] = specs["banheiros"] or extrair_int(txt)
-            elif "garag" in txt or "vaga" in txt:
-                specs["vagas"] = specs["vagas"] or extrair_int(txt)
+            self._atribuir_feature(specs, txt)
         return specs
 
     def _extrair_ref_e_tipo(self, card, href: str):

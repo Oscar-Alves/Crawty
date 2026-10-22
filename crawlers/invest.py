@@ -33,6 +33,17 @@ class InvestCrawler:
                 specs["ref"] = str(extrair_int(txt))
         return specs
 
+    @staticmethod
+    def _obter_texto(card, seletor: str, padrao: str = "") -> str:
+        el = card.select_one(seletor)
+        return el.get_text(strip=True) if el else padrao
+
+    @staticmethod
+    def _determinar_modalidade(card) -> str:
+        mod_el = card.select_one(".valor small")
+        mod_raw = mod_el.get_text(strip=True).upper() if mod_el else "VENDA"
+        return "ALUGUEL" if ("LOCA" in mod_raw or "ALUG" in mod_raw) else "VENDA"
+
     def _padronizar_card(self, card):
         card_id = card.get("id") or ""
         a_el = card.select_one(".foto a")
@@ -45,19 +56,12 @@ class InvestCrawler:
         if not cod:
             return None
 
-        tipo_el = card.select_one("h3.tipo")
-        cidade_el = card.select_one("h4.cidade")
-        bairro_el = card.select_one("h4.bairro")
-        mod_el = card.select_one(".valor small")
-        preco_el = card.select_one(".valor h5")
-
-        tipo = tipo_el.get_text(strip=True) if tipo_el else "Imóvel"
-        cidade_raw = cidade_el.get_text(strip=True) if cidade_el else "São João del Rei"
+        tipo = self._obter_texto(card, "h3.tipo", "Imóvel")
+        cidade_raw = self._obter_texto(card, "h4.cidade", "São João del Rei")
         cidade = cidade_raw.split("-")[0].strip()
-        bairro = bairro_el.get_text(strip=True) if bairro_el else "Não Informado"
-        mod_raw = mod_el.get_text(strip=True).upper() if mod_el else "VENDA"
-        modalidade = "ALUGUEL" if ("LOCA" in mod_raw or "ALUG" in mod_raw) else "VENDA"
-        preco = extrair_preco(preco_el.get_text(strip=True) if preco_el else "")
+        bairro = self._obter_texto(card, "h4.bairro", "Não Informado")
+        modalidade = self._determinar_modalidade(card)
+        preco = extrair_preco(self._obter_texto(card, ".valor h5"))
         link = f"{self.site_url}{href}" if href.startswith("/") else href
         titulo = (img_el.get("title") if img_el else None) or f"{tipo} em {bairro}"
 

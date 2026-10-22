@@ -1,11 +1,9 @@
 import logging
 import requests
-import urllib3
 from bs4 import BeautifulSoup
 from backend.normalizer import normalizar_imovel
 from crawlers.html_utils import DEFAULT_HEADERS, extrair_preco, extrair_int
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
@@ -91,7 +89,6 @@ class SavioCrawler:
                     self.ajax_url,
                     data={"page": page},
                     headers=DEFAULT_HEADERS,
-                    verify=False,
                     timeout=20,
                 )
                 if resp.status_code != 200 or not resp.text.strip():
