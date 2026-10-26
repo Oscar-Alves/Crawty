@@ -109,35 +109,31 @@ def main():
     start_global = time.time()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # Lista de crawlers para rodar
+    # Lista balanceada de crawlers intercalando APIs compartilhadas (Homeclix)
+    # e portais independentes para otimizar concorrência e evitar sobrecarga de rede.
     tasks = [
-        # Imobiliárias de São João del Rei
-        (ZanferCrawler, 'Zanfer'),
-        (ChavesCrawler, 'Chaves'),
-        (FlavioCrawler, 'Flavio Vitor'),
-        (DomiciliumCrawler, 'Domicilium'),
-        (LiderCrawler, 'Líder'),
-        (KrasisCrawler, 'Krasis'),
-        (JFroesCrawler, 'JFróes'),
-        (FocoCrawler, 'Foco'),
-        # (BaseGestaoCrawler, 'Base Gestão'),
-        (ContinuaCrawler, 'Contínua'),
-        # Imobiliárias da região (Barbacena, Barroso, etc.)
-        (ResendeCrawler, 'Resende'),
-        (MendoncaCrawler, 'Mendonça'),
-        # (LongattiCrawler, 'Longatti'), # Desativado temporariamente devido a instabilidade no site oficial
-        # Novas fontes adicionadas
         (CarazzaCrawler, 'Carazza'),
+        (ZanferCrawler, 'Zanfer'),
         (InvestCrawler, 'Invest'),
+        (ChavesCrawler, 'Chaves'),
         (VenanciaCrawler, 'Venância'),
+        (FlavioCrawler, 'Flavio Vitor'),
         (LCImobiliariaCrawler, 'LC Imobiliária'),
+        (DomiciliumCrawler, 'Domicilium'),
         (VertentesCrawler, 'Vertentes'),
+        (LiderCrawler, 'Líder'),
         (MarceloCrawler, 'Marcelo Corretor'),
+        (KrasisCrawler, 'Krasis'),
         (CasaMineiraCrawler, 'Casa Mineira'),
+        (JFroesCrawler, 'JFróes'),
         (TerraDosImoveisCrawler, 'Terra dos Imóveis'),
+        (FocoCrawler, 'Foco'),
         (GuilhermeAugustoCrawler, 'Guilherme Augusto'),
+        (ContinuaCrawler, 'Contínua'),
         (TrindadeCrawler, 'Trindade'),
+        (ResendeCrawler, 'Resende'),
         (SigmaCrawler, 'Sigma'),
+        (MendoncaCrawler, 'Mendonça'),
         (TetoCrawler, 'Teto Imóveis'),
         (CelsoJrCrawler, 'Celso Jr'),
         (SavioCrawler, 'Sávio Corretor'),

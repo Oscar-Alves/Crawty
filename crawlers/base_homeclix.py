@@ -1,5 +1,7 @@
-import requests
 import logging
+import threading
+import time
+import requests
 from backend.normalizer import normalizar_imovel
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -10,6 +12,9 @@ class BaseHomeclixCrawler:
     Crawler base para imobiliárias hospedadas na plataforma Homeclix.
     Consome a API centralizada /website/imovel/filtrar utilizando o cabeçalho x-tenant-id.
     """
+    # Limita requisições concorrentes ao domínio central api.homeclix.com.br
+    _api_semaphore = threading.Semaphore(2)
+
     def __init__(self, tenant_id: int, imobiliaria_nome: str, prefixo_id: str, site_url: str):
         self.tenant_id = str(tenant_id)
         self.imobiliaria_nome = imobiliaria_nome
@@ -21,6 +26,8 @@ class BaseHomeclixCrawler:
             'Content-Type': 'application/json',
             'x-tenant-id': self.tenant_id
         }
+        self.session = requests.Session()
+        self.session.headers.update(self.headers)
 
     def _converter_para_float(self, valor):
         if valor is None:
@@ -71,52 +78,110 @@ class BaseHomeclixCrawler:
             try:
                 destino.append(self._padronizar_item(item, modalidade_nome))
             except Exception:
-                logging.exception(f"Erro ao padronizar item {self.imobiliaria_nome}")
+                logging.exception("[%s] Erro ao padronizar item", self.imobiliaria_nome)
+
+    def _requisicao_com_retry(self, url: str, payload: dict, max_tentativas: int = 3, timeout: int = 45):
+        """
+        Executa requisição POST com controle de concorrência e tentativas automáticas em caso de timeout.
+        """
+        for tentativa in range(1, max_tentativas + 1):
+            try:
+                with self._api_semaphore:
+                    time.sleep(0.3)
+                    response = self.session.post(
+                        url,
+                        json=payload,
+                        timeout=timeout
+                    )
+
+                if response.status_code in (200, 201):
+                    return response.json()
+
+                if response.status_code == 429 or response.status_code >= 500:
+                    logging.warning(
+                        "[%s] HTTP %s na tentativa %d/%d. Aguardando retentativa...",
+                        self.imobiliaria_nome,
+                        response.status_code,
+                        tentativa,
+                        max_tentativas
+                    )
+                else:
+                    logging.error(
+                        "[%s] Falha na requisição HTTP %s: %s",
+                        self.imobiliaria_nome,
+                        response.status_code,
+                        response.text[:200]
+                    )
+                    return None
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+                logging.warning(
+                    "[%s] Conexão/Timeout (%s) na tentativa %d/%d para %s",
+                    self.imobiliaria_nome,
+                    type(exc).__name__,
+                    tentativa,
+                    max_tentativas,
+                    url
+                )
+            except Exception as exc:
+                logging.warning(
+                    "[%s] Erro inesperado na requisição (tentativa %d/%d): %s",
+                    self.imobiliaria_nome,
+                    tentativa,
+                    max_tentativas,
+                    exc
+                )
+
+            if tentativa < max_tentativas:
+                time.sleep(tentativa * 2)
+
+        logging.error("[%s] Esgotadas todas as %d tentativas para %s", self.imobiliaria_nome, max_tentativas, url)
+        return None
 
     def _coletar_modalidade(self, modalidade_nome):
         imoveis_padronizados = []
         skip = 0
         take = 50
 
-        logging.info(f"--- {self.imobiliaria_nome}: {modalidade_nome} ---")
+        logging.info("--- %s: %s ---", self.imobiliaria_nome, modalidade_nome)
 
         while True:
             url_atual = self.base_url.format(skip, take)
-            try:
-                response = requests.post(
-                    url_atual,
-                    json={"modalidade": [modalidade_nome]},
-                    headers=self.headers,
-                    timeout=20
-                )
+            dados = self._requisicao_com_retry(
+                url_atual,
+                payload={"modalidade": [modalidade_nome]}
+            )
 
-                if response.status_code not in [200, 201]:
-                    logging.error(f"Erro request {self.imobiliaria_nome} {modalidade_nome}: HTTP {response.status_code}")
-                    break
+            if not dados or not isinstance(dados, dict):
+                break
 
-                dados = response.json()
-                total_disponivel = dados.get('total', 0)
-                lista_imoveis = dados.get('imoveis', [])
-                qtd_encontrada = len(lista_imoveis)
+            total_disponivel = dados.get('total', 0)
+            lista_imoveis = dados.get('imoveis', [])
+            qtd_encontrada = len(lista_imoveis)
 
-                logging.info(f"Retornados {qtd_encontrada} imóveis de {modalidade_nome} (skip={skip}, total na base={total_disponivel})")
+            logging.info(
+                "[%s] Retornados %d imóveis de %s (skip=%d, total na base=%d)",
+                self.imobiliaria_nome,
+                qtd_encontrada,
+                modalidade_nome,
+                skip,
+                total_disponivel
+            )
 
-                if qtd_encontrada == 0:
-                    break
+            if qtd_encontrada == 0:
+                break
 
-                self._processar_lote(lista_imoveis, modalidade_nome, imoveis_padronizados)
-                skip += take
-                if skip >= total_disponivel:
-                    break
-
-            except Exception:
-                logging.exception(f"Erro {self.imobiliaria_nome}")
+            self._processar_lote(lista_imoveis, modalidade_nome, imoveis_padronizados)
+            skip += take
+            if skip >= total_disponivel:
                 break
 
         return imoveis_padronizados
 
     def buscar_imoveis(self):
         todos = []
-        todos.extend(self._coletar_modalidade("VENDA"))
-        todos.extend(self._coletar_modalidade("ALUGUEL"))
+        try:
+            todos.extend(self._coletar_modalidade("VENDA"))
+            todos.extend(self._coletar_modalidade("ALUGUEL"))
+        finally:
+            self.session.close()
         return todos
