@@ -108,7 +108,7 @@ def comando_status(args: argparse.Namespace) -> None:
 
 def construir_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Gerenciador CLI de Contas B2B de Corretores e Imobiliárias (HubImóveis)"
+        description="Gerenciador CLI de Contas B2B de Corretores e Imobiliárias (MatchLar)"
     )
     subparsers = parser.add_subparsers(dest="comando", required=True)
 

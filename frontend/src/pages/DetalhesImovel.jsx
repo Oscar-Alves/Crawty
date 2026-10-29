@@ -32,7 +32,7 @@ const construirLinkRastreado = (urlOriginal) => {
     if (!urlOriginal || urlOriginal.startsWith('#')) return '#';
     if (urlOriginal.includes('wa.me/')) return urlOriginal;
     const separador = urlOriginal.includes('?') ? '&' : '?';
-    return `${urlOriginal}${separador}utm_source=hubimoveis&utm_medium=portal`;
+    return `${urlOriginal}${separador}utm_source=matchlar&utm_medium=portal`;
 };
 
 const montarLinkWhatsappDireto = (whatsappBruto, imovel) => {
@@ -40,7 +40,7 @@ const montarLinkWhatsappDireto = (whatsappBruto, imovel) => {
     if (digitos.length < 10) return '';
     const ddiDigitos = digitos.length <= 11 ? `55${digitos}` : digitos;
     const texto = encodeURIComponent(
-        `Olá! Vi o imóvel "${imovel.titulo}" (Cód. ${imovel.codigo_original}) no HubImóveis e gostaria de mais informações.`
+        `Olá! Vi o imóvel "${imovel.titulo}" (Cód. ${imovel.codigo_original}) no MatchLar e gostaria de mais informações.`
     );
     return `https://wa.me/${ddiDigitos}?text=${texto}`;
 };

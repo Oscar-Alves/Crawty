@@ -68,7 +68,7 @@ const LoginCorretor = () => {
                             Área do Corretor & Imobiliárias Parceiras
                         </h1>
                         <p className="text-blue-100/85 text-sm mt-3 leading-relaxed">
-                            Gerencie sua carteira de imóveis diretamente no HubImóveis, receba leads no seu WhatsApp e tome decisões baseadas nos dados reais do mercado regional.
+                            Gerencie sua carteira de imóveis diretamente no MatchLar, receba leads no seu WhatsApp e tome decisões baseadas nos dados reais do mercado regional.
                         </p>
 
                         <div className="mt-8 space-y-4">
@@ -121,7 +121,7 @@ const LoginCorretor = () => {
                             Ainda não possui credenciais de parceiro?
                         </p>
                         <p className="text-xs text-blue-100/75 mt-1">
-                            O acesso é liberado mediante credenciamento comercial. Entre em contato com a administração do HubImóveis para contratar seu plano.
+                            O acesso é liberado mediante credenciamento comercial. Entre em contato com a administração do MatchLar para contratar seu plano.
                         </p>
                     </div>
                 </div>

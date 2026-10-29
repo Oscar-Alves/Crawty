@@ -44,7 +44,7 @@ const Header = () => {
                         <Home className="text-white w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <h1 className="text-base sm:text-xl font-extrabold text-blue-600 tracking-tight whitespace-nowrap">
-                        Hub<span className="text-gray-900">Imóveis</span>
+                        Match<span className="text-gray-900">Lar</span>
                     </h1>
                 </Link>
 

@@ -92,7 +92,7 @@ def gerar_link_anuncio_corretor(
     if len(digitos) >= 12:
         mensagem = (
             f"Olá! Vi o imóvel '{dados.titulo.strip()}' "
-            f"(Cód. {codigo_original}) no HubImóveis e gostaria de mais informações."
+            f"(Cód. {codigo_original}) no MatchLar e gostaria de mais informações."
         )
         return f"https://wa.me/{digitos}?text={quote(mensagem)}"
 
